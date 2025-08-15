@@ -5,8 +5,19 @@ import logoImage from './assets/westly-strong.svg';
 function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentSong, setCurrentSong] = useState<typeof upcomingSongs[0] | null>(null);
-  const [upcomingSongs] = useState([
+
+  // Define the song type first
+  type Song = {
+    id: number;
+    album: string;
+    title: string;
+    artist: string;
+    duration: string;
+    image: string;
+  };
+
+  const [currentSong, setCurrentSong] = useState<Song | null>(null);
+  const [upcomingSongs] = useState<Song[]>([
     { id: 1, album: "Album 1", title: 'Bohemian Rhapsody', artist: 'Queen', duration: '5:55', image: "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcTXXzrf9nWsu8CGnl_sndW1q1TsTSgQqc4yOC3VzntYyeuvWYN3" },
     { id: 2, album: "Album 2", title: 'Hotel California', artist: 'Eagles', duration: '6:30', image: "" },
     { id: 3, album: "Album 3", title: 'Stairway to Heaven', artist: 'Led Zeppelin', duration: '8:02', image: "" },
