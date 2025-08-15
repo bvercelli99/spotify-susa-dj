@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './App.css';
 import logoImage from './assets/westly-strong.svg';
-import { Song } from "./models/Song"
+import { Song } from './models/Song';
 import * as utils from './utils/utilities';
 
 function App() {
@@ -39,8 +39,8 @@ function App() {
         const data = await response.json();
 
         // Transform the Spotify API response to match our Song model
-        if (data.tracks && data.tracks.items) {
-          const transformedResults: Song[] = data.tracks.items.map((track: any) => ({
+        if (data && data.length > 0) {
+          const transformedResults: Song[] = data.map((track: any) => ({
             songId: track.id, // Generate unique ID for frontend
             albumName: track.album || 'Unknown Album',
             songName: track.name || 'Unknown Song',
@@ -50,7 +50,7 @@ function App() {
             releaseDate: track.release_date.split("-")[0] || '',
             popularity: track.popularity || 0,
           }));
-
+          console.log('here')
           setSearchResults(transformedResults);
         } else {
           setSearchResults([]);
