@@ -1,34 +1,38 @@
 import React, { useState } from 'react';
 import './App.css';
 import logoImage from './assets/westly-strong.svg';
+import { Song } from './models/Song';
 
 function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
-
-  // Define the song type first
-  type Song = {
-    id: number;
-    album: string;
-    title: string;
-    artist: string;
-    duration: string;
-    image: string;
-  };
+  const [searchResults, setSearchResults] = useState<Song[]>([]);
 
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [upcomingSongs] = useState<Song[]>([
-    { id: 1, album: "Album 1", title: 'Bohemian Rhapsody', artist: 'Queen', duration: '5:55', image: "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcTXXzrf9nWsu8CGnl_sndW1q1TsTSgQqc4yOC3VzntYyeuvWYN3" },
-    { id: 2, album: "Album 2", title: 'Hotel California', artist: 'Eagles', duration: '6:30', image: "" },
-    { id: 3, album: "Album 3", title: 'Stairway to Heaven', artist: 'Led Zeppelin', duration: '8:02', image: "" },
-    { id: 4, album: "Album 4", title: 'Imagine', artist: 'John Lennon', duration: '3:03', image: "" },
-    { id: 5, album: "Album 5", title: 'Hey Jude', artist: 'The Beatles', duration: '7:11', image: "" },
+    { songId: 1, albumName: "Album 1", songName: 'Bohemian Rhapsody', artist: 'Queen', duration: '5:55', albumArt: "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcTXXzrf9nWsu8CGnl_sndW1q1TsTSgQqc4yOC3VzntYyeuvWYN3", releaseDate: "", popularity: 1 },
+    { songId: 2, albumName: "Album 2", songName: 'Hotel California', artist: 'Eagles', duration: '6:30', albumArt: "", releaseDate: "", popularity: 1 },
+    { songId: 3, albumName: "Album 3", songName: 'Stairway to Heaven', artist: 'Led Zeppelin', duration: '8:02', albumArt: "", releaseDate: "", popularity: 1 },
+    { songId: 4, albumName: "Album 4", songName: 'Imagine', artist: 'John Lennon', duration: '3:03', albumArt: "", releaseDate: "", popularity: 1 },
+    { songId: 5, albumName: "Album 5", songName: 'Hey Jude', artist: 'The Beatles', duration: '7:11', albumArt: "", releaseDate: "", popularity: 1 },
   ]);
 
   const handleSearch = (e: any) => {
     e.preventDefault();
     console.log('Searching for:', searchQuery);
-    // Add search logic here
+
+    // Simulate search results - replace this with actual API call
+    if (searchQuery.trim()) {
+      const mockResults: Song[] = [
+        { songId: 101, albumName: "Search Album 1", songName: "Song 1", artist: 'Artist 1', duration: '3:45', albumArt: "", releaseDate: "2024", popularity: 85 },
+        { songId: 102, albumName: "Search Album 2", songName: "Song 2", artist: 'Artist 2', duration: '4:20', albumArt: "", releaseDate: "2024", popularity: 92 },
+        { songId: 103, albumName: "Search Album 3", songName: "Song 3", artist: 'Artist 3', duration: '3:15', albumArt: "", releaseDate: "2024", popularity: 78 },
+        { songId: 104, albumName: "Search Album 4", songName: "Song 4", artist: 'Artist 4', duration: '5:10', albumArt: "", releaseDate: "2024", popularity: 88 },
+      ];
+      setSearchResults(mockResults);
+    } else {
+      setSearchResults([]);
+    }
   };
 
   const handleAutoplay = () => {
@@ -46,7 +50,7 @@ function App() {
   const handleSkip = () => {
     // Logic to move to next song
     if (currentSong) {
-      const currentIndex = upcomingSongs.findIndex(song => song.id === currentSong.id);
+      const currentIndex = upcomingSongs.findIndex(song => song.songId === currentSong.songId);
       const nextIndex = (currentIndex + 1) % upcomingSongs.length;
       setCurrentSong(upcomingSongs[nextIndex]);
     }
@@ -58,29 +62,42 @@ function App() {
     // Add blame logic here
   };
 
+  const handleAddSong = (song: Song) => {
+    // Check if song is already in the list
+    const isDuplicate = upcomingSongs.some(existingSong => existingSong.songId === song.songId);
+    if (!isDuplicate) {
+      // Add the song to the upcoming songs list
+      const updatedSongs = [...upcomingSongs, song];
+      // You'll need to make this a state variable to actually update the list
+      console.log('Added song:', song.songName);
+    } else {
+      console.log('Song already in list');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-800 to-gray-700 text-white">
-      <div className="flex h-screen">
+      <div className="flex flex-col lg:flex-row h-screen">
         {/* Left Sidebar - Upcoming Songs */}
-        <div className="w-[370px] bg-gray-800 border-r border-gray-700 p-6 overflow-y-auto">
+        <div className="w-full lg:w-[370px] bg-gray-800 border-b lg:border-b-0 lg:border-r border-gray-700 p-3 lg:p-6 overflow-y-auto">
           <h2 className="text-2xl font-bold mb-6 text-blue-300">Upcoming Songs</h2>
           <div className="space-y-4">
             {upcomingSongs.map((song) => (
-              <div key={song.id} className="bg-gray-600 rounded-lg p-4 hover:bg-gray-500 transition-colors duration-200">
+              <div key={song.songId} className="bg-gray-600 rounded-lg p-4 hover:bg-gray-500 transition-colors duration-200">
                 <div className="flex items-start space-x-4">
                   {/* Album Cover */}
                   <div className="flex-shrink-0">
-                    {song.image ? (
+                    {song.albumArt ? (
                       <img
-                        src={song.image}
-                        alt={`${song.title} album cover`}
-                        className="w-16 h-16 rounded-lg object-cover"
+                        src={song.albumArt}
+                        alt={`${song.songName} album cover`}
+                        className="w-20 h-20 rounded-lg object-cover"
                       />
                     ) : (
                       <img
                         src={logoImage}
                         alt="Default album cover"
-                        className="w-16 h-16 rounded-lg object-cover"
+                        className="w-20 h-20 rounded-lg object-cover"
                       />
                     )}
                   </div>
@@ -88,7 +105,7 @@ function App() {
                   {/* Song Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-semibold text-white truncate">{song.title}</h3>
+                      <h3 className="font-semibold text-white truncate">{song.songName}</h3>
                       <span className="text-sm text-gray-400 bg-gray-600 px-2 py-1 rounded ml-2">{song.duration}</span>
                     </div>
                     <p className="text-gray-300 text-sm mb-3">{song.artist}</p>
@@ -110,32 +127,32 @@ function App() {
         {/* Main Content - Search and Controls at Top Left */}
         <div className="flex-1 flex flex-col">
           {/* Top Section with Search and Controls */}
-          <div className="bg-gray-800 border-b border-gray-700 p-6">
+          <div className="bg-gray-800 border-b border-gray-700 p-3 lg:p-6">
             <div className="max-w-4xl">
-              <h1 className="text-3xl font-bold mb-6 text-blue-300 flex items-center space-x-3">
-                <img src={logoImage} alt="DJ Bot Logo" className="w-[100px] h-[100px]" />
+              <h1 className="text-xl lg:text-3xl font-bold mb-4 lg:mb-6 text-blue-300 flex flex-col lg:flex-row items-center space-y-2 lg:space-y-0 lg:space-x-3">
+                <img src={logoImage} alt="DJ Bot Logo" className="w-16 h-16 lg:w-[100px] lg:h-[100px]" />
                 <span>DJ Bot</span>
               </h1>
 
               {/* Current Song Display */}
-              <div className="mb-6 p-4 bg-gray-700 rounded-lg border border-gray-600">
+              <div className="mb-4 lg:mb-6 p-3 lg:p-4 bg-gray-600 rounded-lg border border-gray-700">
                 {isPlaying && currentSong ? (
                   // Show current song info
                   <div>
-                    <div className="flex items-start space-x-4">
+                    <div className="flex flex-col sm:flex-row items-start space-y-3 sm:space-y-0 sm:space-x-4">
                       {/* Album Cover */}
-                      <div className="flex-shrink-0">
-                        {currentSong.image ? (
+                      <div className="flex-shrink-0 mx-auto sm:mx-0">
+                        {currentSong.albumArt ? (
                           <img
-                            src={currentSong.image}
-                            alt={`${currentSong.title} album cover`}
-                            className="w-20 h-20 rounded-lg object-cover"
+                            src={currentSong.albumArt}
+                            alt={`${currentSong.albumName} album cover`}
+                            className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg object-cover"
                           />
                         ) : (
                           <img
                             src={logoImage}
                             alt="Default album cover"
-                            className="w-20 h-20 rounded-lg object-cover"
+                            className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg object-cover"
                           />
                         )}
                       </div>
@@ -143,9 +160,9 @@ function App() {
                       {/* Song Info */}
                       <div className="flex-1 min-w-0">
                         <div className="space-y-1">
-                          <h3 className="text-xl font-semibold text-white truncate">{currentSong.title}</h3>
+                          <h3 className="text-xl font-semibold text-white truncate">{currentSong.songName}</h3>
                           <p className="text-gray-300">{currentSong.artist}</p>
-                          <p className="text-gray-400 text-sm">{currentSong.album}</p>
+                          <p className="text-gray-400 text-sm">{currentSong.albumName}</p>
                         </div>
                       </div>
                     </div>
@@ -164,10 +181,10 @@ function App() {
                 ) : (
                   // Show "no song playing" message
                   <div>
-                    <div className="flex items-start space-x-4">
-                      <div className="w-20 h-20 bg-gray-600 rounded-lg flex items-center justify-center">
+                    <div className="flex flex-col sm:flex-row items-start space-y-3 sm:space-y-0 sm:space-x-4">
+                      <div className="w-20 h-20 bg-gray-600 rounded-lg flex items-center justify-center mx-auto sm:mx-0">
                         <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                         </svg>
                       </div>
                       <div className="flex-1 min-w-0">
@@ -192,18 +209,18 @@ function App() {
               </div>
 
               {/* Search Input */}
-              <form onSubmit={handleSearch} className="mb-6">
+              <form onSubmit={handleSearch} className="mb-4 lg:mb-6">
                 <div className="relative max-w-md">
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search for songs, artists, or albums..."
-                    className="w-full px-6 py-3 text-lg bg-gray-600 border border-gray-500 rounded-full text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 lg:px-6 py-2 lg:py-3 text-base lg:text-lg bg-gray-600 border border-gray-500 rounded-full text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <button
                     type="submit"
-                    className="absolute right-2 top-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-1 rounded-full transition-colors duration-200"
+                    className="absolute right-2 top-2 bg-blue-500 hover:bg-blue-600 text-white px-3 lg:px-4 py-1 rounded-full transition-colors duration-200 text-sm lg:text-base"
                   >
                     Search
                   </button>
@@ -211,7 +228,7 @@ function App() {
               </form>
 
               {/* Control Buttons */}
-              <div className="flex space-x-4">
+              <div className="flex flex-wrap gap-2 lg:gap-4">
                 <button
                   onClick={handleAutoplay}
                   className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors duration-200 flex items-center space-x-2"
@@ -256,12 +273,72 @@ function App() {
             </div>
           </div>
 
-          {/* Main Content Area - Can be used for additional features */}
-          <div className="flex-1 p-6">
-            <div className="text-center text-gray-400">
-              <h2 className="text-2xl font-semibold mb-4">Welcome to DJ Bot</h2>
-              <p className="text-lg">Use the search bar above to find your favorite songs and manage your playlist from the sidebar.</p>
-            </div>
+          {/* Main Content Area - Search Results */}
+          <div className="flex-1 p-3 lg:p-6">
+            {searchResults.length > 0 ? (
+              <div>
+                <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 mb-4 lg:mb-6">
+                  <h2 className="text-xl lg:text-2xl font-semibold text-blue-300">Search Results</h2>
+                  <button
+                    onClick={() => setSearchResults([])}
+                    className="bg-gray-600 hover:bg-gray-500 text-white px-3 lg:px-4 py-2 rounded-lg transition-colors duration-200 text-sm w-full sm:w-auto"
+                  >
+                    Clear Results
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                  {searchResults.map((song) => (
+                    <div key={song.songId} className="bg-gray-600 rounded-lg p-3 hover:bg-gray-600 transition-colors duration-200">
+                      <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
+                        {/* Album Cover */}
+                        <div className="flex-shrink-0 flex flex-col items-center">
+                          {song.albumArt ? (
+                            <img
+                              src={song.albumArt}
+                              alt={`${song.albumName} album cover`}
+                              className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg object-cover"
+                            />
+                          ) : (
+                            <img
+                              src={logoImage}
+                              alt="Default album cover"
+                              className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg object-cover"
+                            />
+                          )}
+                          <button
+                            onClick={() => handleAddSong(song)}
+                            className="w-full bg-green-600 hover:bg-green-700 text-white px-2 py-1.5 rounded text-xs transition-colors duration-200 mt-2"
+                          >
+                            Add Song
+                          </button>
+                        </div>
+
+                        {/* Song Info and Controls */}
+                        <div className="flex-1 min-w-0 text-center sm:text-left">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-1 space-y-1 sm:space-y-0">
+                            <h3 className="font-semibold text-white truncate text-sm">{song.songName}</h3>
+                            <span className="text-xs text-gray-400 bg-gray-600 px-1 py-0.5 rounded">{song.duration}</span>
+                          </div>
+                          <p className="text-gray-300 text-xs mb-1">{song.artist}</p>
+                          <p className="text-gray-400 text-xs mb-2">{song.albumName}</p>
+
+                          <div className="flex justify-center sm:justify-start">
+                            <span className="text-xs text-gray-400 bg-gray-700 px-2 py-1 rounded-full">
+                              Popularity: {song.popularity}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center text-gray-400">
+                <h2 className="text-xl lg:text-2xl font-semibold mb-4">Welcome to DJ Bot</h2>
+                <p className="text-base lg:text-lg">Use the search bar above to find your favorite songs or select Autoplay to start your music.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
