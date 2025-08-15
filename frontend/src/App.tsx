@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import './App.css';
 import logoImage from './assets/westly-strong.svg';
-import { Song } from './models/Song';
+import { Song } from "./models/Song"
+import * as utils from './utils/utilities';
 
 function App() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -10,26 +11,61 @@ function App() {
 
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [upcomingSongs] = useState<Song[]>([
-    { songId: 1, albumName: "Album 1", songName: 'Bohemian Rhapsody', artist: 'Queen', duration: '5:55', albumArt: "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcTXXzrf9nWsu8CGnl_sndW1q1TsTSgQqc4yOC3VzntYyeuvWYN3", releaseDate: "", popularity: 1 },
-    { songId: 2, albumName: "Album 2", songName: 'Hotel California', artist: 'Eagles', duration: '6:30', albumArt: "", releaseDate: "", popularity: 1 },
-    { songId: 3, albumName: "Album 3", songName: 'Stairway to Heaven', artist: 'Led Zeppelin', duration: '8:02', albumArt: "", releaseDate: "", popularity: 1 },
-    { songId: 4, albumName: "Album 4", songName: 'Imagine', artist: 'John Lennon', duration: '3:03', albumArt: "", releaseDate: "", popularity: 1 },
-    { songId: 5, albumName: "Album 5", songName: 'Hey Jude', artist: 'The Beatles', duration: '7:11', albumArt: "", releaseDate: "", popularity: 1 },
+    { songId: "1", albumName: "Album 1", songName: 'Bohemian Rhapsody', artist: 'Queen', duration: 217596, albumArt: "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcTXXzrf9nWsu8CGnl_sndW1q1TsTSgQqc4yOC3VzntYyeuvWYN3", releaseDate: "", popularity: 1 },
+    { songId: "2", albumName: "Album 2", songName: 'Hotel California', artist: 'Eagles', duration: 267696, albumArt: "", releaseDate: "", popularity: 1 },
+    { songId: "3", albumName: "Album 3", songName: 'Stairway to Heaven', artist: 'Led Zeppelin', duration: 227596, albumArt: "", releaseDate: "", popularity: 1 },
+    { songId: "4", albumName: "Album 4", songName: 'Imagine', artist: 'John Lennon', duration: 267526, albumArt: "", releaseDate: "", popularity: 1 },
+    { songId: "5", albumName: "Album 5", songName: 'Hey Jude', artist: 'The Beatles', duration: 267796, albumArt: "", releaseDate: "", popularity: 1 },
   ]);
 
-  const handleSearch = (e: any) => {
+  const handleSearch = async (e: any) => {
     e.preventDefault();
     console.log('Searching for:', searchQuery);
 
-    // Simulate search results - replace this with actual API call
     if (searchQuery.trim()) {
-      const mockResults: Song[] = [
-        { songId: 101, albumName: "Search Album 1", songName: "Song 1", artist: 'Artist 1', duration: '3:45', albumArt: "", releaseDate: "2024", popularity: 85 },
-        { songId: 102, albumName: "Search Album 2", songName: "Song 2", artist: 'Artist 2', duration: '4:20', albumArt: "", releaseDate: "2024", popularity: 92 },
-        { songId: 103, albumName: "Search Album 3", songName: "Song 3", artist: 'Artist 3', duration: '3:15', albumArt: "", releaseDate: "2024", popularity: 78 },
-        { songId: 104, albumName: "Search Album 4", songName: "Song 4", artist: 'Artist 4', duration: '5:10', albumArt: "", releaseDate: "2024", popularity: 88 },
-      ];
-      setSearchResults(mockResults);
+      try {
+        // Make API call to backend search route
+        const response = await fetch(`http://localhost:3001/api/spotify/search?query=${encodeURIComponent(searchQuery)}&type=track&limit=10`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Transform the Spotify API response to match our Song model
+        if (data.tracks && data.tracks.items) {
+          const transformedResults: Song[] = data.tracks.items.map((track: any) => ({
+            songId: track.id, // Generate unique ID for frontend
+            albumName: track.album || 'Unknown Album',
+            songName: track.name || 'Unknown Song',
+            artist: track.artist || 'Unknown Artist',
+            duration: track.duration,
+            albumArt: track.album_image || '',
+            releaseDate: track.release_date.split("-")[0] || '',
+            popularity: track.popularity || 0,
+          }));
+
+          setSearchResults(transformedResults);
+        } else {
+          setSearchResults([]);
+        }
+      } catch (error) {
+        console.error('Search failed:', error);
+        // Fallback to mock data if API call fails
+        // const mockResults: Song[] = [
+        //   { songId: 101, albumName: "Search Album 1", songName: "Song 1", artist: 'Artist 1', duration: '3:45', albumArt: "", releaseDate: "2024", popularity: 85 },
+        //   { songId: 102, albumName: "Search Album 2", songName: "Song 2", artist: 'Artist 2', duration: '4:20', albumArt: "", releaseDate: "2024", popularity: 92 },
+        //   { songId: 103, albumName: "Search Album 3", songName: "Song 3", artist: 'Artist 3', duration: '3:15', albumArt: "", releaseDate: "2024", popularity: 78 },
+        //   { songId: 104, albumName: "Search Album 4", songName: "Song 4", artist: 'Artist 4', duration: '5:10', albumArt: "", releaseDate: "2024", popularity: 88 },
+        // ];
+        setSearchResults([]);
+      }
     } else {
       setSearchResults([]);
     }
@@ -106,7 +142,7 @@ function App() {
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="font-semibold text-white truncate">{song.songName}</h3>
-                      <span className="text-sm text-gray-400 bg-gray-600 px-2 py-1 rounded ml-2">{song.duration}</span>
+                      <span className="text-sm text-gray-400 bg-gray-600 px-2 py-1 rounded ml-2">{utils.formatDuration(song.duration)}</span>
                     </div>
                     <p className="text-gray-300 text-sm mb-3">{song.artist}</p>
                     <div className="flex space-x-2">
@@ -171,7 +207,7 @@ function App() {
                     <div className="mt-4">
                       <div className="flex justify-between text-sm text-gray-400 mb-2">
                         <span>0:00</span>
-                        <span>{currentSong.duration}</span>
+                        <span>{utils.formatDuration(currentSong.duration)}</span>
                       </div>
                       <div className="w-full bg-gray-600 rounded-full h-2">
                         <div className="bg-blue-500 h-2 rounded-full" style={{ width: '0%' }}></div>
@@ -317,7 +353,7 @@ function App() {
                         <div className="flex-1 min-w-0 text-center sm:text-left">
                           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-1 space-y-1 sm:space-y-0">
                             <h3 className="font-semibold text-white truncate text-sm">{song.songName}</h3>
-                            <span className="text-xs text-gray-400 bg-gray-600 px-1 py-0.5 rounded">{song.duration}</span>
+                            <span className="text-xs text-gray-400 bg-gray-600 px-1 py-0.5 rounded">{utils.formatDuration(song.duration)}</span>
                           </div>
                           <p className="text-gray-300 text-xs mb-1">{song.artist}</p>
                           <p className="text-gray-400 text-xs mb-2">{song.albumName}</p>

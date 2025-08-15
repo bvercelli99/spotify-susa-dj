@@ -1,11 +1,10 @@
 export interface Song {
-  songId: number;
+  songId: string;
   albumName: string;
-  albumArt: string;
   songName: string;
+  albumArt: string;
   artist: string;
-  duration: string;
+  duration: number;
   releaseDate: string;
   popularity: number;
-
 }
