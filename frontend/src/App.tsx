@@ -52,22 +52,19 @@ function App() {
           }));
           console.log('here')
           setSearchResults(transformedResults);
+          setSearchQuery('');
         } else {
           setSearchResults([]);
+          setSearchQuery('');
         }
       } catch (error) {
         console.error('Search failed:', error);
-        // Fallback to mock data if API call fails
-        // const mockResults: Song[] = [
-        //   { songId: 101, albumName: "Search Album 1", songName: "Song 1", artist: 'Artist 1', duration: '3:45', albumArt: "", releaseDate: "2024", popularity: 85 },
-        //   { songId: 102, albumName: "Search Album 2", songName: "Song 2", artist: 'Artist 2', duration: '4:20', albumArt: "", releaseDate: "2024", popularity: 92 },
-        //   { songId: 103, albumName: "Search Album 3", songName: "Song 3", artist: 'Artist 3', duration: '3:15', albumArt: "", releaseDate: "2024", popularity: 78 },
-        //   { songId: 104, albumName: "Search Album 4", songName: "Song 4", artist: 'Artist 4', duration: '5:10', albumArt: "", releaseDate: "2024", popularity: 88 },
-        // ];
         setSearchResults([]);
+        setSearchQuery('');
       }
     } else {
       setSearchResults([]);
+      setSearchQuery('');
     }
   };
 
