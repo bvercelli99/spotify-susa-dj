@@ -47,7 +47,7 @@ NODE_ENV=development
 # Spotify API Configuration
 SPOTIFY_CLIENT_ID=your_spotify_client_id_here
 SPOTIFY_CLIENT_SECRET=your_spotify_client_secret_here
-SPOTIFY_REDIRECT_URI=http://localhost:3001/auth/spotify/callback
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:3001/api/auth/spotify/callback
 SPOTIFY_REFRESH_TOKEN=your_spotify_refresh_token_here
 
 # Database Configuration
@@ -76,7 +76,7 @@ RATE_LIMIT_MAX_REQUESTS=100
 2. Create a new application
 3. Copy Client ID and Client Secret to your `.env` file
 4. **For Bot Mode**: No additional setup required - the app will auto-generate tokens
-5. **For User Features**: Add `http://localhost:3001/auth/spotify/callback` to Redirect URIs
+5. **For User Features**: Add `http://127.0.0.1:3001/api/auth/spotify/callback` to Redirect URIs
 
 ### 4. Database Setup
 

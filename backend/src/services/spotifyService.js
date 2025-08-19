@@ -168,28 +168,7 @@ class SpotifyService {
       });
 
       logger.info(`Search completed for query: "${query}"`);
-      //return response.data;
-      if (response.data) {
-        if (response.data.tracks) {
-          let returnValue = [];
-          response.data.tracks.items.forEach(item => {
-            returnValue.push({
-              id: item.id,
-              name: item.name,
-              artist: item.artists[0].name,
-              album: item.album.name,
-              duration: item.duration_ms,
-              release_date: item.album.release_date,
-              album_image: item.album.images[0].url,
-              popularity: item.popularity,
-            });
-          });
-          return returnValue;
-        }
-      }
-
-      logger.info(`No tracks found for query: "${query}"`);
-      return null;
+      return response.data;
     } catch (error) {
       logger.error('Search failed:', error.response?.data || error.message);
       throw error;
@@ -199,40 +178,42 @@ class SpotifyService {
   // Get available devices
   async getDevices() {
     try {
-      const response = await axios.get(`${this.baseURL}/me/player/devices`, {
-        headers: this.getAuthHeaders()
-      });
-
-      return response.data.devices;
+      const response = await this.makeRequest('GET', '/me/player/devices');
+      return response.data.devices || [];
     } catch (error) {
       logger.error('Failed to get devices:', error.response?.data || error.message);
       throw error;
     }
   }
 
-  // Set active device
+  // Set active device for playback
   async setActiveDevice(deviceId) {
-    this.activeDeviceId = deviceId;
-    logger.info(`Active device set to: ${deviceId}`);
+    try {
+      await this.makeRequest('PUT', '/me/player', {
+        device_id: deviceId
+      });
+      this.activeDeviceId = deviceId;
+      logger.info(`Active device set to: ${deviceId}`);
+      return { success: true, deviceId };
+    } catch (error) {
+      logger.error('Failed to set active device:', error.response?.data || error.message);
+      throw error;
+    }
   }
 
   // Start playback
   async play(uris = null, deviceId = null) {
     try {
-      const targetDeviceId = deviceId || this.activeDeviceId;
-      if (!targetDeviceId) {
-        throw new Error('No active device specified');
+      const payload = {};
+      if (uris) {
+        payload.uris = uris;
       }
 
-      const payload = uris ? { uris: Array.isArray(uris) ? uris : [uris] } : {};
+      const params = deviceId ? { device_id: deviceId } : {};
 
-      await axios.put(`${this.baseURL}/me/player/play`, payload, {
-        headers: this.getAuthHeaders(),
-        params: { device_id: targetDeviceId }
-      });
-
-      logger.info('Playback started');
-      return { success: true };
+      await this.makeRequest('PUT', '/me/player/play', payload, params);
+      logger.info('Playback started successfully');
+      return { success: true, message: 'Playback started' };
     } catch (error) {
       logger.error('Failed to start playback:', error.response?.data || error.message);
       throw error;
@@ -242,18 +223,10 @@ class SpotifyService {
   // Pause playback
   async pause(deviceId = null) {
     try {
-      const targetDeviceId = deviceId || this.activeDeviceId;
-      if (!targetDeviceId) {
-        throw new Error('No active device specified');
-      }
-
-      await axios.put(`${this.baseURL}/me/player/pause`, {}, {
-        headers: this.getAuthHeaders(),
-        params: { device_id: targetDeviceId }
-      });
-
-      logger.info('Playback paused');
-      return { success: true };
+      const params = deviceId ? { device_id: deviceId } : {};
+      await this.makeRequest('PUT', '/me/player/pause', {}, params);
+      logger.info('Playback paused successfully');
+      return { success: true, message: 'Playback paused' };
     } catch (error) {
       logger.error('Failed to pause playback:', error.response?.data || error.message);
       throw error;
@@ -263,18 +236,10 @@ class SpotifyService {
   // Skip to next track
   async next(deviceId = null) {
     try {
-      const targetDeviceId = deviceId || this.activeDeviceId;
-      if (!targetDeviceId) {
-        throw new Error('No active device specified');
-      }
-
-      await axios.post(`${this.baseURL}/me/player/next`, {}, {
-        headers: this.getAuthHeaders(),
-        params: { device_id: targetDeviceId }
-      });
-
+      const params = deviceId ? { device_id: deviceId } : {};
+      await this.makeRequest('POST', '/me/player/next', {}, params);
       logger.info('Skipped to next track');
-      return { success: true };
+      return { success: true, message: 'Skipped to next track' };
     } catch (error) {
       logger.error('Failed to skip to next track:', error.response?.data || error.message);
       throw error;
@@ -284,18 +249,10 @@ class SpotifyService {
   // Skip to previous track
   async previous(deviceId = null) {
     try {
-      const targetDeviceId = deviceId || this.activeDeviceId;
-      if (!targetDeviceId) {
-        throw new Error('No active device specified');
-      }
-
-      await axios.post(`${this.baseURL}/me/player/previous`, {}, {
-        headers: this.getAuthHeaders(),
-        params: { device_id: targetDeviceId }
-      });
-
+      const params = deviceId ? { device_id: deviceId } : {};
+      await this.makeRequest('POST', '/me/player/previous', {}, params);
       logger.info('Skipped to previous track');
-      return { success: true };
+      return { success: true, message: 'Skipped to previous track' };
     } catch (error) {
       logger.error('Failed to skip to previous track:', error.response?.data || error.message);
       throw error;
@@ -305,10 +262,7 @@ class SpotifyService {
   // Get current playback state
   async getCurrentPlayback() {
     try {
-      const response = await axios.get(`${this.baseURL}/me/player`, {
-        headers: this.getAuthHeaders()
-      });
-
+      const response = await this.makeRequest('GET', '/me/player');
       return response.data;
     } catch (error) {
       logger.error('Failed to get current playback:', error.response?.data || error.message);
@@ -316,24 +270,17 @@ class SpotifyService {
     }
   }
 
-  // Set playback volume
+  // Set volume
   async setVolume(volumePercent, deviceId = null) {
     try {
-      const targetDeviceId = deviceId || this.activeDeviceId;
-      if (!targetDeviceId) {
-        throw new Error('No active device specified');
+      const params = { volume_percent: volumePercent };
+      if (deviceId) {
+        params.device_id = deviceId;
       }
 
-      await axios.put(`${this.baseURL}/me/player/volume`, {}, {
-        headers: this.getAuthHeaders(),
-        params: {
-          device_id: targetDeviceId,
-          volume_percent: Math.max(0, Math.min(100, volumePercent))
-        }
-      });
-
+      await this.makeRequest('PUT', '/me/player/volume', {}, params);
       logger.info(`Volume set to ${volumePercent}%`);
-      return { success: true };
+      return { success: true, volume: volumePercent };
     } catch (error) {
       logger.error('Failed to set volume:', error.response?.data || error.message);
       throw error;
@@ -343,10 +290,7 @@ class SpotifyService {
   // Get track details
   async getTrack(trackId) {
     try {
-      const response = await axios.get(`${this.baseURL}/tracks/${trackId}`, {
-        headers: this.getAuthHeaders()
-      });
-
+      const response = await this.makeRequest('GET', `/tracks/${trackId}`);
       return response.data;
     } catch (error) {
       logger.error('Failed to get track details:', error.response?.data || error.message);
@@ -357,10 +301,7 @@ class SpotifyService {
   // Get artist details
   async getArtist(artistId) {
     try {
-      const response = await axios.get(`${this.baseURL}/artists/${artistId}`, {
-        headers: this.getAuthHeaders()
-      });
-
+      const response = await this.makeRequest('GET', `/artists/${artistId}`);
       return response.data;
     } catch (error) {
       logger.error('Failed to get artist details:', error.response?.data || error.message);
@@ -371,10 +312,7 @@ class SpotifyService {
   // Get user profile
   async getUserProfile() {
     try {
-      const response = await axios.get(`${this.baseURL}/me`, {
-        headers: this.getAuthHeaders()
-      });
-
+      const response = await this.makeRequest('GET', '/me');
       return response.data;
     } catch (error) {
       logger.error('Failed to get user profile:', error.response?.data || error.message);
@@ -387,13 +325,40 @@ class SpotifyService {
     return this.accessToken && this.tokenExpiry && Date.now() < this.tokenExpiry;
   }
 
-  // Get current token info
+  // Get token information
   getTokenInfo() {
     return {
       hasToken: !!this.accessToken,
-      expiresAt: this.tokenExpiry,
-      isValid: this.isTokenValid()
+      isValid: this.isTokenValid(),
+      expiresAt: this.tokenExpiry ? new Date(this.tokenExpiry).toISOString() : null,
+      tokenType: this.refreshToken ? 'oauth' : 'client_credentials'
     };
+  }
+
+  // Make authenticated request to Spotify API
+  async makeRequest(method, endpoint, data = null, params = {}) {
+    if (!this.accessToken) {
+      throw new Error('No access token available');
+    }
+
+    const config = {
+      method,
+      url: `${this.baseURL}${endpoint}`,
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    };
+
+    if (data) {
+      config.data = data;
+    }
+
+    if (Object.keys(params).length > 0) {
+      config.params = params;
+    }
+    console.log(config);
+    return axios(config);
   }
 }
 

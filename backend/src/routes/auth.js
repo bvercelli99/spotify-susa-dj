@@ -52,7 +52,7 @@ router.get('/spotify/callback', async (req, res) => {
     const userProfile = await spotifyService.getUserProfile();
 
     // Log the authentication event
-    await databaseService.logUserAction({
+    /*await databaseService.logUserAction({
       userId: userProfile.id,
       actionType: 'spotify_auth',
       actionDetails: {
@@ -62,7 +62,49 @@ router.get('/spotify/callback', async (req, res) => {
       },
       ipAddress: req.ip,
       userAgent: req.get('User-Agent')
+    });*/
+
+    res.json({
+      success: true,
+      user: {
+        id: userProfile.id,
+        email: userProfile.email,
+        displayName: userProfile.display_name,
+        country: userProfile.country,
+        image: userProfile.images?.[0]?.url
+      },
+      tokens: {
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_in: tokens.expires_in
+      }
     });
+
+  } catch (error) {
+    logger.error('Spotify callback error:', error);
+    res.status(500).json({ error: 'Authentication failed', details: error.message });
+  }
+});
+
+// Simple callback route (alternative)
+router.get('/callback', async (req, res) => {
+  try {
+    const { code, error } = req.query;
+
+    if (error) {
+      logger.error('Spotify OAuth error:', error);
+      return res.status(400).json({ error: 'Authorization failed', details: error });
+    }
+
+    if (!code) {
+      return res.status(400).json({ error: 'Authorization code is required' });
+    }
+
+    // Exchange code for tokens
+    const tokens = await spotifyService.exchangeCodeForTokens(code);
+
+    // Get user profile
+    const userProfile = await spotifyService.getUserProfile();
 
     res.json({
       success: true,
@@ -130,7 +172,8 @@ router.get('/spotify/status', (req, res) => {
     res.json({
       authenticated: tokenInfo.hasToken,
       tokenValid: tokenInfo.isValid,
-      expiresAt: tokenInfo.expiresAt
+      expiresAt: tokenInfo.expiresAt,
+      tokenType: tokenInfo.tokenType
     });
   } catch (error) {
     logger.error('Failed to get auth status:', error);

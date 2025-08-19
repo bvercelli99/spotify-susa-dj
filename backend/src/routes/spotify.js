@@ -78,14 +78,14 @@ router.post('/devices/active', requireAuth, async (req, res) => {
     // Log device selection
     try {
       const userProfile = await spotifyService.getUserProfile();
-      await databaseService.logUserAction({
+      /*await databaseService.logUserAction({
         userId: userProfile.id,
         actionType: 'device_selected',
         actionDetails: { deviceId },
         deviceId,
         ipAddress: req.ip,
         userAgent: req.get('User-Agent')
-      });
+      });*/
     } catch (logError) {
       logger.warn('Failed to log device selection:', logError);
     }
@@ -111,14 +111,14 @@ router.post('/play', requireAuth, async (req, res) => {
     // Log playback start
     try {
       const userProfile = await spotifyService.getUserProfile();
-      await databaseService.logUserAction({
+      /*await databaseService.logUserAction({
         userId: userProfile.id,
         actionType: 'playback_start',
         actionDetails: { deviceId, uris },
         deviceId,
         ipAddress: req.ip,
         userAgent: req.get('User-Agent')
-      });
+      });*/
     } catch (logError) {
       logger.warn('Failed to log playback start:', logError);
     }
@@ -139,14 +139,14 @@ router.post('/pause', requireAuth, async (req, res) => {
     // Log playback pause
     try {
       const userProfile = await spotifyService.getUserProfile();
-      await databaseService.logUserAction({
+      /*await databaseService.logUserAction({
         userId: userProfile.id,
         actionType: 'playback_pause',
         actionDetails: { deviceId },
         deviceId,
         ipAddress: req.ip,
         userAgent: req.get('User-Agent')
-      });
+      });*/
     } catch (logError) {
       logger.warn('Failed to log playback pause:', logError);
     }
@@ -167,14 +167,14 @@ router.post('/next', requireAuth, async (req, res) => {
     // Log next track
     try {
       const userProfile = await spotifyService.getUserProfile();
-      await databaseService.logUserAction({
+      /*await databaseService.logUserAction({
         userId: userProfile.id,
         actionType: 'playback_next',
         actionDetails: { deviceId },
         deviceId,
         ipAddress: req.ip,
         userAgent: req.get('User-Agent')
-      });
+      });*/
     } catch (logError) {
       logger.warn('Failed to log next track:', logError);
     }
@@ -195,14 +195,14 @@ router.post('/previous', requireAuth, async (req, res) => {
     // Log previous track
     try {
       const userProfile = await spotifyService.getUserProfile();
-      await databaseService.logUserAction({
+      /*await databaseService.logUserAction({
         userId: userProfile.id,
         actionType: 'playback_previous',
         actionDetails: { deviceId },
         deviceId,
         ipAddress: req.ip,
         userAgent: req.get('User-Agent')
-      });
+      });*/
     } catch (logError) {
       logger.warn('Failed to log previous track:', logError);
     }
@@ -239,14 +239,14 @@ router.put('/volume', requireAuth, async (req, res) => {
     // Log volume change
     try {
       const userProfile = await spotifyService.getUserProfile();
-      await databaseService.logUserAction({
+      /*await databaseService.logUserAction({
         userId: userProfile.id,
         actionType: 'volume_change',
         actionDetails: { volumePercent, deviceId },
         deviceId,
         ipAddress: req.ip,
         userAgent: req.get('User-Agent')
-      });
+      });*/
     } catch (logError) {
       logger.warn('Failed to log volume change:', logError);
     }
@@ -282,7 +282,56 @@ router.get('/artists/:artistId', requireAuth, async (req, res) => {
   }
 });
 
-// Play specific track
+// Get track preview URL (30-second clip)
+router.get('/tracks/:trackId/preview', requireAuth, async (req, res) => {
+  try {
+    const { trackId } = req.params;
+    const track = await spotifyService.getTrack(trackId);
+
+    if (!track.preview_url) {
+      return res.status(404).json({
+        error: 'No preview available for this track',
+        message: 'Not all tracks have preview URLs available'
+      });
+    }
+
+    res.json({
+      track_id: trackId,
+      track_name: track.name,
+      artist: track.artists?.[0]?.name,
+      preview_url: track.preview_url,
+      duration_ms: track.duration_ms,
+      message: 'This is a 30-second preview clip. Full playback requires user authentication.'
+    });
+  } catch (error) {
+    logger.error('Failed to get track preview:', error);
+    res.status(500).json({ error: 'Failed to get track preview', details: error.message });
+  }
+});
+
+// Get track external URLs (Spotify app links)
+router.get('/tracks/:trackId/links', requireAuth, async (req, res) => {
+  try {
+    const { trackId } = req.params;
+    const track = await spotifyService.getTrack(trackId);
+
+    const externalUrls = {
+      spotify: track.external_urls?.spotify,
+      track_id: trackId,
+      track_name: track.name,
+      artist: track.artists?.[0]?.name,
+      album: track.album?.name,
+      message: 'Use these links to open the track in Spotify app'
+    };
+
+    res.json(externalUrls);
+  } catch (error) {
+    logger.error('Failed to get track links:', error);
+    res.status(500).json({ error: 'Failed to get track links', details: error.message });
+  }
+});
+
+// Play specific track (requires OAuth - user authentication)
 router.post('/tracks/:trackId/play', requireAuth, async (req, res) => {
   try {
     const { trackId } = req.params;
@@ -296,7 +345,7 @@ router.post('/tracks/:trackId/play', requireAuth, async (req, res) => {
       const userProfile = await spotifyService.getUserProfile();
       const track = await spotifyService.getTrack(trackId);
 
-      await databaseService.logUserAction({
+      /*await databaseService.logUserAction({
         userId: userProfile.id,
         actionType: 'track_play',
         actionDetails: { deviceId, trackUri },
@@ -315,7 +364,7 @@ router.post('/tracks/:trackId/play', requireAuth, async (req, res) => {
         albumName: track.album?.name,
         durationMs: track.duration_ms,
         deviceId
-      });
+      });*/
     } catch (logError) {
       logger.warn('Failed to log track play:', logError);
     }

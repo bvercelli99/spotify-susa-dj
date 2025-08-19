@@ -76,16 +76,21 @@ app.use('*', (req, res) => {
 // Initialize services and start server
 async function startServer() {
   try {
+    // Initialize Spotify service
+    /*await spotifyService.initialize();
 
-    // Initialize Spotify service with client credentials
-    await spotifyService.initialize();
-    logger.info('Spotify service initialized with client credentials');
+    const tokenInfo = spotifyService.getTokenInfo();
+    if (tokenInfo.tokenType === 'oauth') {
+      logger.info('Spotify service initialized with OAuth (playback enabled)');
+    } else {
+      logger.info('Spotify service initialized with client credentials (search only)');
+    }*/
 
     // Start the server
     app.listen(PORT, () => {
       logger.info(`🚀 Spotify DJ Bot backend running on port ${PORT}`);
       logger.info(`📊 Environment: ${process.env.NODE_ENV}`);
-      logger.info(`🤖 Bot mode: Client Credentials Flow (no user interaction required)`);
+      //logger.info(`🎵 Mode: ${tokenInfo.tokenType === 'oauth' ? 'OAuth (Full Playback)' : 'Client Credentials (Search Only)'}`);
     });
 
   } catch (error) {
