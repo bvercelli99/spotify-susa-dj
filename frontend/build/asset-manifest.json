@@ -1,0 +1,14 @@
+{
+  "files": {
+    "main.css": "/static/css/main.a86b0629.css",
+    "main.js": "/static/js/main.89f970d7.js",
+    "static/media/westly-strong.svg": "/static/media/westly-strong.e95b42688f14aead530b29ade19af8af.svg",
+    "index.html": "/index.html",
+    "main.a86b0629.css.map": "/static/css/main.a86b0629.css.map",
+    "main.89f970d7.js.map": "/static/js/main.89f970d7.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.a86b0629.css",
+    "static/js/main.89f970d7.js"
+  ]
+}

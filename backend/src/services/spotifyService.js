@@ -167,8 +167,28 @@ class SpotifyService {
         }
       });
 
-      logger.info(`Search completed for query: "${query}"`);
-      return response.data;
+      if (response.data) {
+        if (response.data.tracks) {
+          let returnValue = [];
+          response.data.tracks.items.forEach(item => {
+            returnValue.push({
+              id: item.id,
+              name: item.name,
+              artist: item.artists[0].name,
+              album: item.album.name,
+              duration: item.duration_ms,
+              release_date: item.album.release_date,
+              album_image: item.album.images[0].url,
+              popularity: item.popularity,
+            });
+          });
+          logger.info(`Search completed for query: "${query}"`);
+          return returnValue;
+        }
+      }
+
+      logger.info(`No tracks found for query: "${query}"`);
+      return null;
     } catch (error) {
       logger.error('Search failed:', error.response?.data || error.message);
       throw error;

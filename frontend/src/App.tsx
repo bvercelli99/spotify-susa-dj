@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import './App.css';
 import logoImage from './assets/westly-strong.svg';
+import { AuthGuard } from './components/AuthGuard';
+import { UserHeader } from './components/UserHeader';
+import { AuthProvider } from './contexts/AuthContext';
 import { Song } from './models/Song';
 import * as utils from './utils/utilities';
 
@@ -100,7 +103,6 @@ function App() {
     const isDuplicate = upcomingSongs.some(existingSong => existingSong.songId === song.songId);
     if (!isDuplicate) {
       // Add the song to the upcoming songs list
-      const updatedSongs = [...upcomingSongs, song];
       // You'll need to make this a state variable to actually update the list
       console.log('Added song:', song.songName);
     } else {
@@ -113,6 +115,7 @@ function App() {
       <div className="flex flex-col lg:flex-row h-screen">
         {/* Left Sidebar - Upcoming Songs */}
         <div className="w-full lg:w-[370px] bg-gray-800 border-b lg:border-b-0 lg:border-r border-gray-700 p-3 lg:p-6 overflow-y-auto">
+          <UserHeader />
           <h2 className="text-2xl font-bold mb-6 text-blue-300">Upcoming Songs</h2>
           <div className="space-y-4">
             {upcomingSongs.map((song) => (
@@ -379,4 +382,14 @@ function App() {
   );
 }
 
-export default App;
+const AppWithAuth: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AuthGuard>
+        <App />
+      </AuthGuard>
+    </AuthProvider>
+  );
+};
+
+export default AppWithAuth;

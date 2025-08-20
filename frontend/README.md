@@ -1,85 +1,77 @@
-# React + Tailwind CSS Project
+# DJ Bot Frontend
 
-A modern React application built with TypeScript and Tailwind CSS for beautiful, responsive designs.
+A React-based frontend for the DJ Bot application with Spotify OAuth integration.
 
 ## Features
 
-- ⚛️ React 18 with TypeScript
-- 🎨 Tailwind CSS for utility-first styling
-- 📱 Responsive design
-- 🚀 Modern development setup
-- 🔧 PostCSS and Autoprefixer
+- **OAuth Authentication**: Secure Spotify authentication flow
+- **User Profile Display**: Shows authenticated user information
+- **Music Search**: Search for songs, artists, and albums
+- **Playlist Management**: Add songs to upcoming playlist
+- **Responsive Design**: Works on desktop and mobile devices
 
-## Getting Started
+## Authentication Flow
 
-### Prerequisites
+The application implements a complete OAuth 2.0 flow with Spotify:
 
-- Node.js (version 14 or higher)
-- npm or yarn
+1. **App Load**: On initial load, the app checks authentication status via `/auth/spotify/status`
+2. **Login Prompt**: If not authenticated, shows a login screen with Spotify connect button
+3. **OAuth Flow**: Clicking "Connect with Spotify" opens a popup window with Spotify's authorization URL
+4. **Callback Handling**: After user authorizes, the popup window closes and the main app updates
+5. **User Display**: Shows user profile information and logout option when authenticated
 
-### Installation
+## Components
 
-1. Clone the repository or navigate to the project directory
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+- **AuthProvider**: Context provider for authentication state management
+- **AuthGuard**: Component that protects routes and shows login screen when not authenticated
+- **UserHeader**: Displays user information and logout button
+- **App**: Main application component with music search and playback controls
 
-### Development
+## API Endpoints Used
 
-Start the development server:
+- `GET /auth/spotify/status` - Check authentication status
+- `GET /auth/spotify/url` - Get Spotify authorization URL
+- `GET /auth/spotify/profile` - Get user profile information
+- `POST /auth/spotify/logout` - Logout user
+- `GET /api/spotify/search` - Search for music
+
+## Development
+
 ```bash
+# Install dependencies
+npm install
+
+# Start development server
 npm start
-```
 
-The app will open in your browser at [http://localhost:3000](http://localhost:3000).
-
-### Building for Production
-
-Create a production build:
-```bash
+# Build for production
 npm run build
 ```
 
-### Testing
+## Environment
 
-Run the test suite:
-```bash
-npm test
-```
+Make sure your backend server is running on `http://localhost:3001` for the API calls to work properly.
 
-## Project Structure
+## OAuth Configuration
+
+The OAuth flow requires proper configuration in your Spotify Developer Dashboard:
+
+1. Set the redirect URI to `http://localhost:3000/callback.html`
+2. Ensure the required scopes are configured in your backend
+3. Make sure your backend is properly handling the OAuth callback
+
+## File Structure
 
 ```
 src/
-├── App.tsx          # Main application component
-├── App.css          # App-specific styles (minimal)
-├── index.tsx        # Application entry point
-├── index.css        # Global styles with Tailwind directives
-└── ...
+├── components/
+│   ├── AuthGuard.tsx      # Authentication guard component
+│   └── UserHeader.tsx     # User profile display
+├── contexts/
+│   └── AuthContext.tsx    # Authentication context provider
+├── models/
+│   └── Song.ts           # Song data model
+├── utils/
+│   └── utilities.tsx     # Utility functions
+└── App.tsx               # Main application component
 ```
-
-## Tailwind CSS
-
-This project uses Tailwind CSS for styling. The configuration is in `tailwind.config.js` and includes:
-
-- Content paths for React components
-- PostCSS configuration
-- Autoprefixer for cross-browser compatibility
-
-## Available Scripts
-
-- `npm start` - Start development server
-- `npm run build` - Build for production
-- `npm test` - Run tests
-- `npm run eject` - Eject from Create React App (not recommended)
-
-## Learn More
-
-- [React Documentation](https://reactjs.org/)
-- [Tailwind CSS Documentation](https://tailwindcss.com/)
-- [TypeScript Documentation](https://www.typescriptlang.org/)
-
-## License
-
-This project is open source and available under the [MIT License](LICENSE).
