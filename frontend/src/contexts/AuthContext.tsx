@@ -4,6 +4,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   user: any | null;
+  activeDevice: any | null;
   login: () => void;
   logout: () => void;
   checkAuthStatus: () => Promise<void>;
@@ -27,6 +28,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<any | null>(null);
+  const [activeDevice, setActiveDevice] = useState<any | null>(null);
 
   const API_BASE_URL = 'http://localhost:3001/api';
 
@@ -37,7 +39,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const data = await response.json();
         setIsAuthenticated(data.authenticated);
 
-        // If authenticated, get user profile
+        // If authenticated, get user profile and set device
         if (data.authenticated) {
           try {
             const profileResponse = await fetch(`${API_BASE_URL}/auth/spotify/profile`);
@@ -47,6 +49,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
           } catch (profileError) {
             console.error('Failed to get user profile:', profileError);
+          }
+
+          // Set first available device as active
+          try {
+            const deviceResponse = await fetch(`${API_BASE_URL}/auth/spotify/set-device`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+            if (deviceResponse.ok) {
+              const deviceData = await deviceResponse.json();
+              console.log('Device set successfully:', deviceData);
+
+              setActiveDevice(deviceData);
+
+            }
+          } catch (deviceError) {
+            console.error('Failed to set device:', deviceError);
           }
         }
       } else {
@@ -77,17 +98,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         );
 
         // Poll for the window to close and check auth status
-        const checkWindowClosed = setInterval(() => {
+        const checkWindowClosed = setInterval(async () => {
           if (authWindow?.closed) {
             clearInterval(checkWindowClosed);
-            checkAuthStatus();
+            await checkAuthStatus();
           }
         }, 1000);
 
         // Also check auth status periodically in case the window doesn't close properly
-        setTimeout(() => {
+        setTimeout(async () => {
           clearInterval(checkWindowClosed);
-          checkAuthStatus();
+          await checkAuthStatus();
         }, 30000); // 30 second timeout
       }
     } catch (error) {
@@ -105,6 +126,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
       setIsAuthenticated(false);
       setUser(null);
+      setActiveDevice(null);
     } catch (error) {
       console.error('Failed to logout:', error);
     }
@@ -118,6 +140,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isAuthenticated,
     isLoading,
     user,
+    activeDevice,
     login,
     logout,
     checkAuthStatus,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import logoImage from './assets/westly-strong.svg';
 import { AuthGuard } from './components/AuthGuard';
@@ -13,13 +13,8 @@ function App() {
   const [searchResults, setSearchResults] = useState<Song[]>([]);
 
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
-  const [upcomingSongs] = useState<Song[]>([
-    { songId: "1", albumName: "Album 1", songName: 'Bohemian Rhapsody', artist: 'Queen', duration: 217596, albumArt: "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcTXXzrf9nWsu8CGnl_sndW1q1TsTSgQqc4yOC3VzntYyeuvWYN3", releaseDate: "", popularity: 1 },
-    { songId: "2", albumName: "Album 2", songName: 'Hotel California', artist: 'Eagles', duration: 267696, albumArt: "", releaseDate: "", popularity: 1 },
-    { songId: "3", albumName: "Album 3", songName: 'Stairway to Heaven', artist: 'Led Zeppelin', duration: 227596, albumArt: "", releaseDate: "", popularity: 1 },
-    { songId: "4", albumName: "Album 4", songName: 'Imagine', artist: 'John Lennon', duration: 267526, albumArt: "", releaseDate: "", popularity: 1 },
-    { songId: "5", albumName: "Album 5", songName: 'Hey Jude', artist: 'The Beatles', duration: 267796, albumArt: "", releaseDate: "", popularity: 1 },
-  ]);
+  const [upcomingSongs, setUpcomingSongs] = useState<Song[]>([]);
+  const [playbackProgress, setPlaybackProgress] = useState<number>(0);
 
   const handleSearch = async (e: any) => {
     e.preventDefault();
@@ -53,7 +48,6 @@ function App() {
             releaseDate: track.release_date.split("-")[0] || '',
             popularity: track.popularity || 0,
           }));
-          console.log('here')
           setSearchResults(transformedResults);
           setSearchQuery('');
         } else {
@@ -71,26 +65,59 @@ function App() {
     }
   };
 
-  const handleAutoplay = () => {
-    setIsPlaying(true);
-    setCurrentSong(upcomingSongs[0]); // Set first song as current
-    console.log('Autoplay started');
+  const handleAutoplay = async () => {
+    if (upcomingSongs.length > 0) {
+      try {
+        await callPlayAPI(upcomingSongs[0].songId);
+        setCurrentSong(upcomingSongs[0]); // Set first song as current
+        setPlaybackProgress(0); // Reset progress for new song
+        setIsPlaying(true);
+        console.log('Autoplay started');
+      } catch (error) {
+        console.error('Failed to start autoplay:', error);
+        // Still update UI even if API call fails for better UX
+        setCurrentSong(upcomingSongs[0]);
+        setPlaybackProgress(0);
+        setIsPlaying(true);
+      }
+    } else {
+      console.log('No songs in queue for autoplay');
+    }
   };
 
-  const handleStop = () => {
-    setIsPlaying(false);
-    setCurrentSong(null);
-    console.log('Playback stopped');
+  const handleStop = async () => {
+    try {
+      await callPauseAPI();
+      setIsPlaying(false);
+      setCurrentSong(null);
+      console.log('Playback stopped');
+    } catch (error) {
+      console.error('Failed to stop playback:', error);
+      // Still update UI even if API call fails for better UX
+      setIsPlaying(false);
+      setCurrentSong(null);
+    }
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
     // Logic to move to next song
-    if (currentSong) {
+    if (currentSong && upcomingSongs.length > 0) {
       const currentIndex = upcomingSongs.findIndex(song => song.songId === currentSong.songId);
       const nextIndex = (currentIndex + 1) % upcomingSongs.length;
-      setCurrentSong(upcomingSongs[nextIndex]);
+      const nextSong = upcomingSongs[nextIndex];
+
+      try {
+        await callPlayAPI(nextSong.songId);
+        setCurrentSong(nextSong);
+        setPlaybackProgress(0); // Reset progress for new song
+        console.log('Skipped to next song:', nextSong.songName);
+      } catch (error) {
+        console.error('Failed to skip song:', error);
+        // Still update UI even if API call fails for better UX
+        setCurrentSong(nextSong);
+        setPlaybackProgress(0);
+      }
     }
-    console.log('Skipped to next song');
   };
 
   const handleBlame = () => {
@@ -98,15 +125,175 @@ function App() {
     // Add blame logic here
   };
 
+  // Polling interval references
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Function to fetch current playback state
+  const fetchPlaybackState = useCallback(async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/spotify/playback');
+      if (response.ok) {
+        const data = await response.json();
+
+        // Update progress if song is playing
+        if (data && data.is_playing && data.progress_ms !== null) {
+          setPlaybackProgress(data.progress_ms);
+        }
+
+        // Check if current song has finished
+        if (data && !data.is_playing && currentSong && upcomingSongs.length > 0) {
+          // Song finished, remove from queue and start next
+          const currentIndex = upcomingSongs.findIndex(song => song.songId === currentSong.songId);
+          if (currentIndex !== -1) {
+            // Remove current song from queue
+            setUpcomingSongs(prevSongs => prevSongs.filter((_, index) => index !== currentIndex));
+
+            // Start next song if available
+            const nextSong = upcomingSongs[currentIndex] || upcomingSongs[0];
+            if (nextSong) {
+              try {
+                await callPlayAPI(nextSong.songId);
+                setCurrentSong(nextSong);
+                console.log('Auto-started next song:', nextSong.songName);
+              } catch (error) {
+                console.error('Failed to auto-start next song:', error);
+                setCurrentSong(null);
+                setIsPlaying(false);
+              }
+            } else {
+              // No more songs in queue
+              setCurrentSong(null);
+              setIsPlaying(false);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch playback state:', error);
+    }
+  }, [currentSong, upcomingSongs]);
+
+  // Start/stop polling based on isPlaying state
+  useEffect(() => {
+    if (isPlaying) {
+      // Start polling every 30 seconds for playback state to avoid rate limits
+      pollingIntervalRef.current = setInterval(fetchPlaybackState, 30000);
+
+      // Start progress updates every second for smooth animation (local only, no API calls)
+      progressIntervalRef.current = setInterval(() => {
+        if (playbackProgress < (currentSong?.duration || 0)) {
+          setPlaybackProgress(prev => prev + 1000); // Add 1 second
+        }
+      }, 1000);
+
+      // Also fetch immediately
+      fetchPlaybackState();
+
+      return () => {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+        if (progressIntervalRef.current) {
+          clearInterval(progressIntervalRef.current);
+          progressIntervalRef.current = null;
+        }
+      };
+    } else {
+      // Stop polling when not playing
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+      setPlaybackProgress(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlaying, currentSong, upcomingSongs, fetchPlaybackState]);
+
   const handleAddSong = (song: Song) => {
     // Check if song is already in the list
     const isDuplicate = upcomingSongs.some(existingSong => existingSong.songId === song.songId);
     if (!isDuplicate) {
       // Add the song to the upcoming songs list
-      // You'll need to make this a state variable to actually update the list
+      setUpcomingSongs(prevSongs => [...prevSongs, song]);
       console.log('Added song:', song.songName);
     } else {
       console.log('Song already in list');
+    }
+  };
+
+  const handleRemoveSong = (songId: string) => {
+    setUpcomingSongs(prevSongs => prevSongs.filter(song => song.songId !== songId));
+    console.log('Removed song from list');
+  };
+
+  const callPlayAPI = async (songId: string) => {
+    try {
+      const trackUri = `spotify:track:${songId}`;
+      const response = await fetch('http://localhost:3001/api/spotify/play', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uris: [trackUri]
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Playback started via API:', data);
+      return data;
+    } catch (error) {
+      console.error('Failed to start playback:', error);
+      throw error;
+    }
+  };
+
+  const callPauseAPI = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/spotify/pause', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Playback paused via API:', data);
+      return data;
+    } catch (error) {
+      console.error('Failed to pause playback:', error);
+      throw error;
+    }
+  };
+
+  const handlePlayNow = async (song: Song) => {
+    try {
+      await callPlayAPI(song.songId);
+      setCurrentSong(song);
+      setPlaybackProgress(0); // Reset progress for new song
+      setIsPlaying(true);
+      console.log('Playing song now:', song.songName);
+    } catch (error) {
+      console.error('Failed to play song:', error);
+      // Still update UI even if API call fails for better UX
+      setCurrentSong(song);
+      setPlaybackProgress(0);
+      setIsPlaying(true);
     }
   };
 
@@ -146,10 +333,16 @@ function App() {
                     </div>
                     <p className="text-gray-300 text-sm mb-3">{song.artist}</p>
                     <div className="flex space-x-2">
-                      <button className="text-xs bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded transition-colors duration-200">
+                      <button
+                        onClick={() => handlePlayNow(song)}
+                        className="text-xs bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded transition-colors duration-200"
+                      >
                         Play Now
                       </button>
-                      <button className="text-xs bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded transition-colors duration-200">
+                      <button
+                        onClick={() => handleRemoveSong(song.songId)}
+                        className="text-xs bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded transition-colors duration-200"
+                      >
                         Remove
                       </button>
                     </div>
@@ -206,11 +399,16 @@ function App() {
                     {/* Progress Bar */}
                     <div className="mt-4">
                       <div className="flex justify-between text-sm text-gray-400 mb-2">
-                        <span>0:00</span>
+                        <span>{utils.formatDuration(playbackProgress)}</span>
                         <span>{utils.formatDuration(currentSong.duration)}</span>
                       </div>
                       <div className="w-full bg-gray-600 rounded-full h-2">
-                        <div className="bg-blue-500 h-2 rounded-full" style={{ width: '0%' }}></div>
+                        <div
+                          className="bg-blue-500 h-2 rounded-full transition-all duration-1000"
+                          style={{
+                            width: `${currentSong.duration > 0 ? (playbackProgress / currentSong.duration) * 100 : 0}%`
+                          }}
+                        ></div>
                       </div>
                     </div>
                   </div>

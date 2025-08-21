@@ -206,6 +206,23 @@ class SpotifyService {
     }
   }
 
+  // Get current active device details
+  async getActiveDevice() {
+    try {
+      if (!this.activeDeviceId) {
+        return null;
+      }
+
+      const devices = await this.getDevices();
+      const activeDevice = devices.find(device => device.id === this.activeDeviceId);
+
+      return activeDevice || null;
+    } catch (error) {
+      logger.error('Failed to get active device:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
   // Set active device for playback
   async setActiveDevice(deviceId) {
     try {
@@ -221,6 +238,33 @@ class SpotifyService {
     }
   }
 
+  // Get first available device and set it as active
+  async setFirstAvailableDevice() {
+    try {
+      const devices = await this.getDevices();
+
+      if (!devices || devices.length === 0) {
+        throw new Error('No devices available');
+      }
+
+      // Find the first active device or any available device
+      let targetDevice = devices.find(device => device.is_active) || devices[0];
+
+      this.activeDeviceId = targetDevice.id;
+      logger.info(`First available device set as active: ${targetDevice.name} (${targetDevice.id})`);
+
+      return {
+        success: true,
+        id: targetDevice.id,
+        name: targetDevice.name,
+        type: targetDevice.type
+      };
+    } catch (error) {
+      logger.error('Failed to set first available device:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
   // Start playback
   async play(uris = null, deviceId = null) {
     try {
@@ -229,7 +273,9 @@ class SpotifyService {
         payload.uris = uris;
       }
 
-      const params = deviceId ? { device_id: deviceId } : {};
+      // Use provided deviceId, then activeDeviceId, then no device (Spotify will choose)
+      const targetDeviceId = deviceId || this.activeDeviceId;
+      const params = targetDeviceId ? { device_id: targetDeviceId } : {};
 
       await this.makeRequest('PUT', '/me/player/play', payload, params);
       logger.info('Playback started successfully');
@@ -243,7 +289,9 @@ class SpotifyService {
   // Pause playback
   async pause(deviceId = null) {
     try {
-      const params = deviceId ? { device_id: deviceId } : {};
+      // Use provided deviceId, then activeDeviceId, then no device (Spotify will choose)
+      const targetDeviceId = deviceId || this.activeDeviceId;
+      const params = targetDeviceId ? { device_id: targetDeviceId } : {};
       await this.makeRequest('PUT', '/me/player/pause', {}, params);
       logger.info('Playback paused successfully');
       return { success: true, message: 'Playback paused' };
@@ -256,7 +304,9 @@ class SpotifyService {
   // Skip to next track
   async next(deviceId = null) {
     try {
-      const params = deviceId ? { device_id: deviceId } : {};
+      // Use provided deviceId, then activeDeviceId, then no device (Spotify will choose)
+      const targetDeviceId = deviceId || this.activeDeviceId;
+      const params = targetDeviceId ? { device_id: targetDeviceId } : {};
       await this.makeRequest('POST', '/me/player/next', {}, params);
       logger.info('Skipped to next track');
       return { success: true, message: 'Skipped to next track' };
@@ -269,7 +319,9 @@ class SpotifyService {
   // Skip to previous track
   async previous(deviceId = null) {
     try {
-      const params = deviceId ? { device_id: deviceId } : {};
+      // Use provided deviceId, then activeDeviceId, then no device (Spotify will choose)
+      const targetDeviceId = deviceId || this.activeDeviceId;
+      const params = targetDeviceId ? { device_id: targetDeviceId } : {};
       await this.makeRequest('POST', '/me/player/previous', {}, params);
       logger.info('Skipped to previous track');
       return { success: true, message: 'Skipped to previous track' };
@@ -293,9 +345,11 @@ class SpotifyService {
   // Set volume
   async setVolume(volumePercent, deviceId = null) {
     try {
+      // Use provided deviceId, then activeDeviceId, then no device (Spotify will choose)
+      const targetDeviceId = deviceId || this.activeDeviceId;
       const params = { volume_percent: volumePercent };
-      if (deviceId) {
-        params.device_id = deviceId;
+      if (targetDeviceId) {
+        params.device_id = targetDeviceId;
       }
 
       await this.makeRequest('PUT', '/me/player/volume', {}, params);
@@ -351,7 +405,8 @@ class SpotifyService {
       hasToken: !!this.accessToken,
       isValid: this.isTokenValid(),
       expiresAt: this.tokenExpiry ? new Date(this.tokenExpiry).toISOString() : null,
-      tokenType: this.refreshToken ? 'oauth' : 'client_credentials'
+      tokenType: this.refreshToken ? 'oauth' : 'client_credentials',
+      activeDeviceId: this.activeDeviceId
     };
   }
 

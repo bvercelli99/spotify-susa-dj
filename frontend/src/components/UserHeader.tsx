@@ -2,7 +2,7 @@ import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 export const UserHeader: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, activeDevice, logout } = useAuth();
 
   return (
     <div className="flex items-center justify-between bg-gray-700 rounded-lg p-3 mb-4">
@@ -17,6 +17,11 @@ export const UserHeader: React.FC = () => {
         <div>
           <p className="text-white font-medium">{user?.displayName || 'User'}</p>
           <p className="text-gray-400 text-sm">{user?.email}</p>
+          {activeDevice && (
+            <p className="text-gray-500 text-xs mt-1">
+              📱 {activeDevice.name} ({activeDevice.type})
+            </p>
+          )}
         </div>
       </div>
 

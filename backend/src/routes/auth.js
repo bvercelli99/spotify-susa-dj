@@ -204,6 +204,36 @@ router.get('/spotify/profile', async (req, res) => {
   }
 });
 
+// Set first available device as active
+router.post('/spotify/set-device', async (req, res) => {
+  try {
+    if (!spotifyService.isTokenValid()) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    const result = await spotifyService.setFirstAvailableDevice();
+    res.json(result);
+  } catch (error) {
+    logger.error('Failed to set first available device:', error);
+    res.status(500).json({ error: 'Failed to set device', details: error.message });
+  }
+});
+
+// Get active device information
+router.get('/spotify/active-device', async (req, res) => {
+  try {
+    if (!spotifyService.isTokenValid()) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    const activeDevice = await spotifyService.getActiveDevice();
+    res.json({ activeDevice });
+  } catch (error) {
+    logger.error('Failed to get active device:', error);
+    res.status(500).json({ error: 'Failed to get active device', details: error.message });
+  }
+});
+
 // Logout (clear tokens)
 router.post('/spotify/logout', async (req, res) => {
   try {
