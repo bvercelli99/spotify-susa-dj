@@ -143,30 +143,30 @@ function App() {
 
         // Check if current song has finished
         if (data && !data.is_playing && currentSong && upcomingSongs.length > 0) {
-          // Song finished, remove from queue and start next
-          const currentIndex = upcomingSongs.findIndex(song => song.songId === currentSong.songId);
-          if (currentIndex !== -1) {
-            // Remove current song from queue
-            setUpcomingSongs(prevSongs => prevSongs.filter((_, index) => index !== currentIndex));
+          // Song finished, start next
 
-            // Start next song if available
-            const nextSong = upcomingSongs[currentIndex] || upcomingSongs[0];
-            if (nextSong) {
-              try {
-                await callPlayAPI(nextSong.songId);
-                setCurrentSong(nextSong);
-                console.log('Auto-started next song:', nextSong.songName);
-              } catch (error) {
-                console.error('Failed to auto-start next song:', error);
-                setCurrentSong(null);
-                setIsPlaying(false);
-              }
-            } else {
-              // No more songs in queue
+          // Remove current song from queue
+
+
+          // Start next song if available
+          const nextSong = upcomingSongs[0];
+          if (nextSong) {
+            try {
+              await callPlayAPI(nextSong.songId);
+              setCurrentSong(nextSong);
+              setUpcomingSongs(prevSongs => prevSongs.filter((s, index) => s.songId !== nextSong.songId));
+              console.log('Auto-started next song:', nextSong.songName);
+            } catch (error) {
+              console.error('Failed to auto-start next song:', error);
               setCurrentSong(null);
               setIsPlaying(false);
             }
+          } else {
+            // No more songs in queue
+            setCurrentSong(null);
+            setIsPlaying(false);
           }
+
         }
       }
     } catch (error) {
@@ -174,34 +174,14 @@ function App() {
     }
   }, [currentSong, upcomingSongs]);
 
+  const durationRef = useRef(0);
+  useEffect(() => {
+    durationRef.current = currentSong?.duration ?? 0; // ms
+  }, [currentSong]);
+
   // Start/stop polling based on isPlaying state
   useEffect(() => {
-    if (isPlaying) {
-      // Start polling every 30 seconds for playback state to avoid rate limits
-      pollingIntervalRef.current = setInterval(fetchPlaybackState, 30000);
-
-      // Start progress updates every second for smooth animation (local only, no API calls)
-      progressIntervalRef.current = setInterval(() => {
-        if (playbackProgress < (currentSong?.duration || 0)) {
-          setPlaybackProgress(prev => prev + 1000); // Add 1 second
-        }
-      }, 1000);
-
-      // Also fetch immediately
-      fetchPlaybackState();
-
-      return () => {
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = null;
-        }
-        if (progressIntervalRef.current) {
-          clearInterval(progressIntervalRef.current);
-          progressIntervalRef.current = null;
-        }
-      };
-    } else {
-      // Stop polling when not playing
+    if (!isPlaying) {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
@@ -211,9 +191,36 @@ function App() {
         progressIntervalRef.current = null;
       }
       setPlaybackProgress(0);
+      return; // nothing else to do
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPlaying, currentSong, upcomingSongs, fetchPlaybackState]);
+
+    // Poll Spotify less frequently
+    pollingIntervalRef.current = setInterval(fetchPlaybackState, 10000);
+
+    // Local smooth progress; only use functional update
+    progressIntervalRef.current = setInterval(() => {
+      setPlaybackProgress(prev => {
+        const next = Math.min(prev + 1000, durationRef.current); // +1s, clamp to duration
+        return next;
+      });
+    }, 1000);
+
+    // Kick off immediately
+    fetchPlaybackState();
+
+    // Cleanup
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+    };
+    // Keep deps minimal to avoid re-creating intervals unnecessarily
+  }, [isPlaying, fetchPlaybackState]);
 
   const handleAddSong = (song: Song) => {
     // Check if song is already in the list
@@ -284,6 +291,12 @@ function App() {
   const handlePlayNow = async (song: Song) => {
     try {
       await callPlayAPI(song.songId);
+      const currentIndex = upcomingSongs.findIndex(s => s.songId === song.songId);
+      if (currentIndex !== -1) {
+        // Remove current song from queue
+        setUpcomingSongs(prevSongs => prevSongs.filter((_, index) => index !== currentIndex));
+      }
+
       setCurrentSong(song);
       setPlaybackProgress(0); // Reset progress for new song
       setIsPlaying(true);
@@ -291,9 +304,9 @@ function App() {
     } catch (error) {
       console.error('Failed to play song:', error);
       // Still update UI even if API call fails for better UX
-      setCurrentSong(song);
+      setCurrentSong(null);
       setPlaybackProgress(0);
-      setIsPlaying(true);
+      setIsPlaying(false);
     }
   };
 
