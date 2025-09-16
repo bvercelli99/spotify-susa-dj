@@ -77,14 +77,10 @@ app.use('*', (req, res) => {
 async function startServer() {
   try {
     // Initialize Spotify service
-    /*await spotifyService.initialize();
+    //await spotifyService.initialize();
 
-    const tokenInfo = spotifyService.getTokenInfo();
-    if (tokenInfo.tokenType === 'oauth') {
-      logger.info('Spotify service initialized with OAuth (playback enabled)');
-    } else {
-      logger.info('Spotify service initialized with client credentials (search only)');
-    }*/
+    // Initialize database connection
+    await databaseService.initialize();
 
     // Start the server
     app.listen(PORT, () => {
@@ -102,13 +98,13 @@ async function startServer() {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully');
-  //await databaseService.close();
+  await databaseService.close();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully');
-  //await databaseService.close();
+  await databaseService.close();
   process.exit(0);
 });
 

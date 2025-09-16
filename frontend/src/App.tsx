@@ -10,6 +10,7 @@ import * as utils from './utils/utilities';
 function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [searchResults, setSearchResults] = useState<Song[]>([]);
 
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
@@ -47,6 +48,7 @@ function App() {
             albumArt: track.album_image || '',
             releaseDate: track.release_date.split("-")[0] || '',
             popularity: track.popularity || 0,
+            userId: ""
           }));
           setSearchResults(transformedResults);
           setSearchQuery('');
@@ -66,12 +68,13 @@ function App() {
   };
 
   const handleAutoplay = async () => {
-    if (upcomingSongs.length > 0) {
+    if (upcomingSongs.length > 0 && !isAutoPlaying) {
       try {
-        await callPlayAPI(upcomingSongs[0].songId);
+        await callPlayAPI(upcomingSongs[0]);
         setCurrentSong(upcomingSongs[0]); // Set first song as current
         setPlaybackProgress(0); // Reset progress for new song
         setIsPlaying(true);
+        handleRemoveSong(upcomingSongs[0].songId);
         console.log('Autoplay started');
       } catch (error) {
         console.error('Failed to start autoplay:', error);
@@ -80,8 +83,10 @@ function App() {
         setPlaybackProgress(0);
         setIsPlaying(true);
       }
-    } else {
-      console.log('No songs in queue for autoplay');
+    } else if (!isAutoPlaying) {
+      setIsAutoPlaying(true);
+
+      console.log('No songs in queue for autoplay, pull 10 from db and go');
     }
   };
 
@@ -102,14 +107,14 @@ function App() {
   const handleSkip = async () => {
     // Logic to move to next song
     if (currentSong && upcomingSongs.length > 0) {
-      const currentIndex = upcomingSongs.findIndex(song => song.songId === currentSong.songId);
-      const nextIndex = (currentIndex + 1) % upcomingSongs.length;
-      const nextSong = upcomingSongs[nextIndex];
+
+      const nextSong = upcomingSongs[0];
 
       try {
-        await callPlayAPI(nextSong.songId);
+        await callPlayAPI(nextSong);
         setCurrentSong(nextSong);
         setPlaybackProgress(0); // Reset progress for new song
+        handleRemoveSong(nextSong.songId);
         console.log('Skipped to next song:', nextSong.songName);
       } catch (error) {
         console.error('Failed to skip song:', error);
@@ -152,7 +157,7 @@ function App() {
           const nextSong = upcomingSongs[0];
           if (nextSong) {
             try {
-              await callPlayAPI(nextSong.songId);
+              await callPlayAPI(nextSong);
               setCurrentSong(nextSong);
               setUpcomingSongs(prevSongs => prevSongs.filter((s, index) => s.songId !== nextSong.songId));
               console.log('Auto-started next song:', nextSong.songName);
@@ -227,6 +232,7 @@ function App() {
     const isDuplicate = upcomingSongs.some(existingSong => existingSong.songId === song.songId);
     if (!isDuplicate) {
       // Add the song to the upcoming songs list
+      song.userId = "local-user"; // Placeholder user ID
       setUpcomingSongs(prevSongs => [...prevSongs, song]);
       console.log('Added song:', song.songName);
     } else {
@@ -239,9 +245,9 @@ function App() {
     console.log('Removed song from list');
   };
 
-  const callPlayAPI = async (songId: string) => {
+  const callPlayAPI = async (song: Song) => {
     try {
-      const trackUri = `spotify:track:${songId}`;
+      const trackUri = `spotify:track:${song.songId}`;
       const response = await fetch('http://localhost:3001/api/spotify/play', {
         method: 'POST',
         headers: {
@@ -254,6 +260,24 @@ function App() {
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      else {
+        //log playback
+        const r = await fetch('http://localhost:3001/api/analytics/logplayback', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            track: {
+              id: song.songId,
+              trackName: song.songName,
+              artistName: song.artist,
+              albumName: song.albumName,
+            },
+            userId: "local-user"
+          }),
+        });
       }
 
       const data = await response.json();
@@ -290,7 +314,7 @@ function App() {
 
   const handlePlayNow = async (song: Song) => {
     try {
-      await callPlayAPI(song.songId);
+      await callPlayAPI(song);
       const currentIndex = upcomingSongs.findIndex(s => s.songId === song.songId);
       if (currentIndex !== -1) {
         // Remove current song from queue

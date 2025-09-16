@@ -64,6 +64,9 @@ router.get('/spotify/callback', async (req, res) => {
       userAgent: req.get('User-Agent')
     });*/
 
+    //schedule token refresh interval for 50 minutes.
+    spotifyService.scheduleTokenRefresh();
+
     res.json({
       success: true,
       user: {
@@ -86,7 +89,7 @@ router.get('/spotify/callback', async (req, res) => {
   }
 });
 
-// Simple callback route (alternative)
+// NOTE USED Simple callback route (alternative)
 router.get('/callback', async (req, res) => {
   try {
     const { code, error } = req.query;

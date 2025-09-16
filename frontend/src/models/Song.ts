@@ -7,4 +7,5 @@ export interface Song {
   duration: number;
   releaseDate: string;
   popularity: number;
+  userId: string;
 }

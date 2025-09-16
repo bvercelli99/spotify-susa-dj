@@ -19,6 +19,35 @@ const timeRangeSchema = Joi.object({
   limit: Joi.number().integer().min(1).max(100).default(10)
 });
 
+
+router.post('/logplayback', async (req, res) => {
+  try {
+    const { track, userId } = req.body;
+    // Log track play
+    if (!track || !track.id) {
+      return res.status(400).json({ error: 'Invalid track data' });
+    }
+    // Log playback event
+    await databaseService.logPlaybackEvent({
+      trackId: track.id,
+      trackName: track.trackName,
+      artistName: track.artistName,
+      albumName: track.albumName,
+      userId: userId
+    });
+
+    res.status(200).json({ message: 'Playback event logged' });
+
+  } catch (logError) {
+    logger.warn('Failed to log track play:', logError);
+  }
+
+});
+
+/*
+
+*/
+
 // Get usage analytics with filters
 router.get('/usage', async (req, res) => {
   try {

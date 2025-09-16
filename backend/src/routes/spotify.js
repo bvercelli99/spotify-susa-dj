@@ -75,21 +75,6 @@ router.post('/devices/active', requireAuth, async (req, res) => {
 
     await spotifyService.setActiveDevice(deviceId);
 
-    // Log device selection
-    try {
-      const userProfile = await spotifyService.getUserProfile();
-      /*await databaseService.logUserAction({
-        userId: userProfile.id,
-        actionType: 'device_selected',
-        actionDetails: { deviceId },
-        deviceId,
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent')
-      });*/
-    } catch (logError) {
-      logger.warn('Failed to log device selection:', logError);
-    }
-
     res.json({ success: true, message: 'Active device set successfully' });
   } catch (error) {
     logger.error('Failed to set active device:', error);
@@ -108,21 +93,6 @@ router.post('/play', requireAuth, async (req, res) => {
     const { deviceId, uris } = value;
     const result = await spotifyService.play(uris, deviceId);
 
-    // Log playback start
-    try {
-      const userProfile = await spotifyService.getUserProfile();
-      /*await databaseService.logUserAction({
-        userId: userProfile.id,
-        actionType: 'playback_start',
-        actionDetails: { deviceId, uris },
-        deviceId,
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent')
-      });*/
-    } catch (logError) {
-      logger.warn('Failed to log playback start:', logError);
-    }
-
     res.json(result);
   } catch (error) {
     logger.error('Failed to start playback:', error);
@@ -135,21 +105,6 @@ router.post('/pause', requireAuth, async (req, res) => {
   try {
     const { deviceId } = req.body;
     const result = await spotifyService.pause(deviceId);
-
-    // Log playback pause
-    try {
-      const userProfile = await spotifyService.getUserProfile();
-      /*await databaseService.logUserAction({
-        userId: userProfile.id,
-        actionType: 'playback_pause',
-        actionDetails: { deviceId },
-        deviceId,
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent')
-      });*/
-    } catch (logError) {
-      logger.warn('Failed to log playback pause:', logError);
-    }
 
     res.json(result);
   } catch (error) {
@@ -164,21 +119,6 @@ router.post('/next', requireAuth, async (req, res) => {
     const { deviceId } = req.body;
     const result = await spotifyService.next(deviceId);
 
-    // Log next track
-    try {
-      const userProfile = await spotifyService.getUserProfile();
-      /*await databaseService.logUserAction({
-        userId: userProfile.id,
-        actionType: 'playback_next',
-        actionDetails: { deviceId },
-        deviceId,
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent')
-      });*/
-    } catch (logError) {
-      logger.warn('Failed to log next track:', logError);
-    }
-
     res.json(result);
   } catch (error) {
     logger.error('Failed to skip to next track:', error);
@@ -191,21 +131,6 @@ router.post('/previous', requireAuth, async (req, res) => {
   try {
     const { deviceId } = req.body;
     const result = await spotifyService.previous(deviceId);
-
-    // Log previous track
-    try {
-      const userProfile = await spotifyService.getUserProfile();
-      /*await databaseService.logUserAction({
-        userId: userProfile.id,
-        actionType: 'playback_previous',
-        actionDetails: { deviceId },
-        deviceId,
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent')
-      });*/
-    } catch (logError) {
-      logger.warn('Failed to log previous track:', logError);
-    }
 
     res.json(result);
   } catch (error) {
@@ -236,20 +161,6 @@ router.put('/volume', requireAuth, async (req, res) => {
 
     const result = await spotifyService.setVolume(volumePercent, deviceId);
 
-    // Log volume change
-    try {
-      const userProfile = await spotifyService.getUserProfile();
-      /*await databaseService.logUserAction({
-        userId: userProfile.id,
-        actionType: 'volume_change',
-        actionDetails: { volumePercent, deviceId },
-        deviceId,
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent')
-      });*/
-    } catch (logError) {
-      logger.warn('Failed to log volume change:', logError);
-    }
 
     res.json(result);
   } catch (error) {
@@ -339,35 +250,6 @@ router.post('/tracks/:trackId/play', requireAuth, async (req, res) => {
 
     const trackUri = `spotify:track:${trackId}`;
     const result = await spotifyService.play([trackUri], deviceId);
-
-    // Log track play
-    try {
-      const userProfile = await spotifyService.getUserProfile();
-      const track = await spotifyService.getTrack(trackId);
-
-      /*await databaseService.logUserAction({
-        userId: userProfile.id,
-        actionType: 'track_play',
-        actionDetails: { deviceId, trackUri },
-        spotifyTrackId: trackId,
-        deviceId,
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent')
-      });
-
-      // Log playback event
-      await databaseService.logPlaybackEvent({
-        sessionId: req.session?.id || 'unknown',
-        trackId,
-        trackName: track.name,
-        artistName: track.artists?.[0]?.name,
-        albumName: track.album?.name,
-        durationMs: track.duration_ms,
-        deviceId
-      });*/
-    } catch (logError) {
-      logger.warn('Failed to log track play:', logError);
-    }
 
     res.json(result);
   } catch (error) {

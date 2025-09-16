@@ -17,7 +17,7 @@ class SpotifyService {
     this.activeDeviceId = null;
   }
 
-  async initialize() {
+  /*async initialize() {
     try {
       // Try to get client credentials token first (for bot functionality)
       await this.getClientCredentialsToken();
@@ -27,7 +27,7 @@ class SpotifyService {
       logger.error('Failed to initialize Spotify service with client credentials:', error);
       throw error;
     }
-  }
+  }*/
 
   // Get access token using Client Credentials Flow (no user interaction required)
   async getClientCredentialsToken() {
@@ -121,6 +121,7 @@ class SpotifyService {
 
       this.accessToken = response.data.access_token;
       this.tokenExpiry = Date.now() + (response.data.expires_in * 1000);
+      this.refreshToken = response.data.refresh_token || this.refreshToken;
 
       logger.info('Access token refreshed successfully');
       return this.accessToken;
@@ -130,12 +131,12 @@ class SpotifyService {
     }
   }
 
-  // Schedule automatic token refresh
+  // Schedule automatic token refresh, will get called from client after OAuth
   scheduleTokenRefresh() {
     // Refresh client credentials token every 50 minutes (tokens expire in 1 hour)
     cron.schedule('*/50 * * * *', async () => {
       try {
-        await this.getClientCredentialsToken();
+        await this.refreshAccessToken()
         logger.info('Scheduled client credentials token refresh completed');
       } catch (error) {
         logger.error('Scheduled client credentials token refresh failed:', error);
