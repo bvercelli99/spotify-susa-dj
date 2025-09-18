@@ -263,7 +263,7 @@ function App() {
       }
       else {
         //log playback
-        const r = await fetch('http://localhost:3001/api/analytics/logplayback', {
+        await fetch('http://localhost:3001/api/analytics/logplayback', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
