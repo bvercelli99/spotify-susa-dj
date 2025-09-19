@@ -324,4 +324,8 @@ regisonline/regisonline_data/REGIONAL/PERSISTENT/FOCUS_BUILDER/SC_DEMO_MODELS/*
 #package-lock that doesn't belong
 localRol/frontend/package-lock.json
 
+# Environment files
+**/.env
+**/.env.development
+
 **/.vscode/

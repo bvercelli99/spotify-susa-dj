@@ -17,6 +17,9 @@ function App() {
   const [upcomingSongs, setUpcomingSongs] = useState<Song[]>([]);
   const [playbackProgress, setPlaybackProgress] = useState<number>(0);
 
+  const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001';
+  console.log('process.env.REACT_APP_API_BASE_URL:', process.env.REACT_APP_API_BASE_URL);
+
   const handleSearch = async (e: any) => {
     e.preventDefault();
     console.log('Searching for:', searchQuery);
@@ -24,7 +27,7 @@ function App() {
     if (searchQuery.trim()) {
       try {
         // Make API call to backend search route
-        const response = await fetch(`http://localhost:3001/api/spotify/search?query=${encodeURIComponent(searchQuery)}&type=track&limit=10`, {
+        const response = await fetch(`${API_URL}/api/spotify/search?query=${encodeURIComponent(searchQuery)}&type=track&limit=10`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -137,7 +140,7 @@ function App() {
   // Function to fetch current playback state
   const fetchPlaybackState = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/spotify/playback');
+      const response = await fetch(`${API_URL}/api/spotify/playback`);
       if (response.ok) {
         const data = await response.json();
 
@@ -177,6 +180,7 @@ function App() {
     } catch (error) {
       console.error('Failed to fetch playback state:', error);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong, upcomingSongs]);
 
   const durationRef = useRef(0);
@@ -248,7 +252,7 @@ function App() {
   const callPlayAPI = async (song: Song) => {
     try {
       const trackUri = `spotify:track:${song.songId}`;
-      const response = await fetch('http://localhost:3001/api/spotify/play', {
+      const response = await fetch(`${API_URL}/api/spotify/play`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -263,7 +267,7 @@ function App() {
       }
       else {
         //log playback
-        await fetch('http://localhost:3001/api/analytics/logplayback', {
+        await fetch(`${API_URL}/api/analytics/logplayback`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -291,7 +295,7 @@ function App() {
 
   const callPauseAPI = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/spotify/pause', {
+      const response = await fetch(`${API_URL}/api/spotify/pause`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
