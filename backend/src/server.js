@@ -16,6 +16,8 @@ const analyticsRoutes = require('./routes/analytics');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+activeQueue = null;
+
 // Security middleware
 app.use(helmet());
 
@@ -24,6 +26,7 @@ console.log('CORS_ALLOWED_ORIGINS:', process.env.CORS_ALLOWED_ORIGINS);
 const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
   ? process.env.CORS_ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
   : ['http://localhost:3000', 'http://localhost:3001'];
+
 app.use(cors({
   origin: allowedOrigins,
   credentials: true
@@ -60,6 +63,15 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/spotify', spotifyRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.get('/api/queue', async (req, res) => {
+  try {
+    res.json(this.activeQueue);
+  } catch (error) {
+    logger.error('Failed to get active queue:', error);
+    res.status(500).json({ error: 'Failed to get active queue', details: error.message });
+  }
+});
+
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -88,7 +100,19 @@ async function startServer() {
     app.listen(PORT, () => {
       logger.info(`🚀 Spotify DJ Bot backend running on port ${PORT}`);
       logger.info(`📊 Environment: ${process.env.NODE_ENV}`);
-      //logger.info(`🎵 Mode: ${tokenInfo.tokenType === 'oauth' ? 'OAuth (Full Playback)' : 'Client Credentials (Search Only)'}`);
+
+      setInterval(async () => {
+        if (spotifyService.isTokenValid()) {
+          try {
+            const data = await spotifyService.getCurrentPlaybackQueue();
+            this.activeQueue = data;
+            console.log(this.activeQueue);
+
+          } catch (error) {
+            logger.error('Failed to get current playback:', error);
+          }
+        }
+      }, 10000);
     });
 
   } catch (error) {

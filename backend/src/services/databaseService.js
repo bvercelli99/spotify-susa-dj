@@ -54,7 +54,8 @@ class DatabaseService {
           album_name VARCHAR(100),
           user_id text NOT NULL,
           added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          times_played INTEGER NOT NULL DEFAULT 1
+          times_played INTEGER NOT NULL DEFAULT 1,
+          banned BOOLEAN NOT NULL DEFAULT FALSE
         )
       `);
 
@@ -132,7 +133,7 @@ class DatabaseService {
 
 
   // Get popular tracks
-  async getPopularTracks(limit = 10, days = 30) {
+  async getPopularTracks(limit = 1) {
     try {
       const query = `
         SELECT 
@@ -197,6 +198,49 @@ class DatabaseService {
     } catch (error) {
       logger.error('Database health check failed:', error);
       return { status: 'unhealthy', error: error.message, timestamp: new Date().toISOString() };
+    }
+  }
+
+  async getRandomTracks(limit = 1) {
+    try {
+      const query = `
+        SELECT 
+          ph.track_id as trackId,
+          ph.track_name as trackName,
+          ph.artist_name as artistName,
+          ph.album_name as albumName
+        FROM playback_history ph
+        WHERE banned = false
+        ORDER BY RANDOM()
+        LIMIT $1
+      `;
+      const result = await this.pool.query(query, [limit]);
+      console.log(result.rows);
+      return result.rows;
+    }
+    catch (error) {
+      logger.error('Failed to get random tracks:', error);
+      throw error;
+    }
+  }
+
+  async getUserForTrack(trackId) {
+    try {
+      const query = `
+        SELECT user_id
+        FROM playback_history
+        WHERE track_id = $1
+        LIMIT 1
+      `;
+      const result = await this.pool.query(query, [trackId]);
+      if (result.rows.length === 0) {
+        throw new Error('Track not found');
+      }
+      return result.rows[0].user_id;
+    }
+    catch (error) {
+      logger.error('Failed to get user for track:', error);
+      throw error;
     }
   }
 }

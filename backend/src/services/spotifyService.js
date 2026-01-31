@@ -343,6 +343,17 @@ class SpotifyService {
     }
   }
 
+  // Get current playback state
+  async getCurrentPlaybackQueue() {
+    try {
+      const response = await this.makeRequest('GET', '/me/player/queue');
+      return response.data;
+    } catch (error) {
+      logger.error('Failed to get current playback:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
   // Set volume
   async setVolume(volumePercent, deviceId = null) {
     try {
@@ -366,7 +377,18 @@ class SpotifyService {
   async getTrack(trackId) {
     try {
       const response = await this.makeRequest('GET', `/tracks/${trackId}`);
-      return response.data;
+
+      return {
+        id: response.data.id,
+        name: response.data.name,
+        artist: response.data.artists[0].name,
+        album: response.data.album.name,
+        duration: response.data.duration_ms,
+        release_date: response.data.album.release_date,
+        album_image: response.data.album.images[0].url,
+        popularity: response.data.popularity,
+      };
+      //return response.data;
     } catch (error) {
       logger.error('Failed to get track details:', error.response?.data || error.message);
       throw error;

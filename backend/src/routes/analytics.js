@@ -44,9 +44,36 @@ router.post('/logplayback', async (req, res) => {
 
 });
 
-/*
+// Get random tracks
+router.get('/random/tracks', async (req, res) => {
+  console.log('Fetching random tracks with query:', req.query);
+  try {
+    const { limit } = req.query;
 
-*/
+    const randomTracks = await databaseService.getRandomTracks(limit);
+
+    res.json(randomTracks);
+
+  } catch (error) {
+    logger.error('Failed to get random tracks:', error);
+    res.status(500).json({ error: 'Failed to get random tracks', details: error.message });
+  }
+});
+
+// Get who added the track
+router.get('/blame/:trackId', async (req, res) => {
+  try {
+    const { trackId } = req.params;
+
+    const userName = await databaseService.getUserForTrack(trackId);
+
+    res.json({ trackId, addedBy: userName });
+
+  } catch (error) {
+    logger.error('Failed to get user info for track:', error);
+    res.status(500).json({ error: 'Failed to get user info for track', details: error.message });
+  }
+});
 
 // Get usage analytics with filters
 router.get('/usage', async (req, res) => {

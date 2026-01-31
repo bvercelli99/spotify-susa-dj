@@ -18,7 +18,6 @@ function App() {
   const [playbackProgress, setPlaybackProgress] = useState<number>(0);
 
   const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001';
-  console.log('process.env.REACT_APP_API_BASE_URL:', process.env.REACT_APP_API_BASE_URL);
 
   const handleSearch = async (e: any) => {
     e.preventDefault();
@@ -71,25 +70,42 @@ function App() {
   };
 
   const handleAutoplay = async () => {
-    if (upcomingSongs.length > 0 && !isAutoPlaying) {
-      try {
-        await callPlayAPI(upcomingSongs[0]);
-        setCurrentSong(upcomingSongs[0]); // Set first song as current
-        setPlaybackProgress(0); // Reset progress for new song
-        setIsPlaying(true);
-        handleRemoveSong(upcomingSongs[0].songId);
-        console.log('Autoplay started');
-      } catch (error) {
-        console.error('Failed to start autoplay:', error);
-        // Still update UI even if API call fails for better UX
-        setCurrentSong(upcomingSongs[0]);
-        setPlaybackProgress(0);
-        setIsPlaying(true);
-      }
-    } else if (!isAutoPlaying) {
+    if (!isAutoPlaying) {
       setIsAutoPlaying(true);
+    }
 
+    if (upcomingSongs.length > 0) {
+      if (!isPlaying) {
+        try {
+          await callPlayAPI(upcomingSongs[0]);
+          setCurrentSong(upcomingSongs[0]); // Set first song as current
+          setPlaybackProgress(0); // Reset progress for new song
+          setIsPlaying(true);
+          handleRemoveSong(upcomingSongs[0].songId);
+        } catch (error) {
+          console.error('Failed to start autoplay:', error);
+          // Still update UI even if API call fails for better UX
+          setCurrentSong(upcomingSongs[0]);
+          setPlaybackProgress(0);
+          setIsPlaying(true);
+        }
+      }
+    } else if (!isPlaying) {
+      //TODO get random song from db and set active
       console.log('No songs in queue for autoplay, pull 10 from db and go');
+      const randomSongs = await fetchRandomSongsFromDB(1);
+      if (randomSongs && randomSongs.length > 0) {
+        try {
+          const song = randomSongs[0];
+          setCurrentSong(song); // Set first song as current
+          setPlaybackProgress(0); // Reset progress for new song
+          setIsPlaying(true);
+          await callPlayAPI(song);
+
+        } catch (error) {
+          console.error('Failed to start autoplay with random song:', error);
+        }
+      }
     }
   };
 
@@ -97,40 +113,70 @@ function App() {
     try {
       await callPauseAPI();
       setIsPlaying(false);
+      setIsAutoPlaying(false);
       setCurrentSong(null);
       console.log('Playback stopped');
     } catch (error) {
       console.error('Failed to stop playback:', error);
       // Still update UI even if API call fails for better UX
       setIsPlaying(false);
+      setIsAutoPlaying(false);
       setCurrentSong(null);
     }
   };
 
   const handleSkip = async () => {
     // Logic to move to next song
-    if (currentSong && upcomingSongs.length > 0) {
+    if (currentSong) {
 
-      const nextSong = upcomingSongs[0];
+      if (upcomingSongs.length > 0) {
 
-      try {
-        await callPlayAPI(nextSong);
-        setCurrentSong(nextSong);
-        setPlaybackProgress(0); // Reset progress for new song
-        handleRemoveSong(nextSong.songId);
-        console.log('Skipped to next song:', nextSong.songName);
-      } catch (error) {
-        console.error('Failed to skip song:', error);
-        // Still update UI even if API call fails for better UX
-        setCurrentSong(nextSong);
-        setPlaybackProgress(0);
+        const nextSong = upcomingSongs[0];
+
+        try {
+          await callPlayAPI(nextSong);
+          setCurrentSong(nextSong);
+          setPlaybackProgress(0); // Reset progress for new song
+          handleRemoveSong(nextSong.songId);
+          console.log('Skipped to next song:', nextSong.songName);
+        } catch (error) {
+          console.error('Failed to skip song:', error);
+          // Still update UI even if API call fails for better UX
+          setCurrentSong(nextSong);
+          setPlaybackProgress(0);
+        }
+      } else if (isAutoPlaying) {
+        const randomSongs = await fetchRandomSongsFromDB(1);
+        if (randomSongs && randomSongs.length > 0) {
+          try {
+            const song = randomSongs[0];
+            setCurrentSong(song); // Set first song as current
+            setPlaybackProgress(0); // Reset progress for new song
+            setIsPlaying(true);
+            await callPlayAPI(song);
+          } catch (error) {
+            console.error('Failed to autoplay a random song on skip:', error);
+          }
+        }
       }
     }
   };
 
-  const handleBlame = () => {
+  const handleBlame = async () => {
     console.log('Blame action triggered');
-    // Add blame logic here
+    if (currentSong) {
+      try {
+
+        const response = await fetch(`${API_URL}/api/analytics/blame/${currentSong.songId}`);
+        if (response.ok) {
+          const data = await response.json();
+          alert(`You can blame ${data.addedBy} for adding this song!`);
+        }
+      } catch (error) {
+        console.error('Failed to fetch blame for song:', error);
+      }
+    }
+
   };
 
   // Polling interval references
@@ -149,15 +195,11 @@ function App() {
           setPlaybackProgress(data.progress_ms);
         }
 
-        // Check if current song has finished
-        if (data && !data.is_playing && currentSong && upcomingSongs.length > 0) {
-          // Song finished, start next
+        if (data && !data.is_playing) {
+          // Song finished, check to start next
 
-          // Remove current song from queue
-
-
-          // Start next song if available
-          const nextSong = upcomingSongs[0];
+          // Start next song if available AND Remove current song from queue
+          const nextSong = upcomingSongs.length > 0 ? upcomingSongs[0] : null;;
           if (nextSong) {
             try {
               await callPlayAPI(nextSong);
@@ -169,10 +211,25 @@ function App() {
               setCurrentSong(null);
               setIsPlaying(false);
             }
-          } else {
+          } else if (isAutoPlaying && !currentSong) {
+            const randomSongs = await fetchRandomSongsFromDB(1);
+            if (randomSongs && randomSongs.length > 0) {
+              try {
+                const song = randomSongs[0];
+                await callPlayAPI(song);
+                setCurrentSong(song); // Set first song as current
+                setPlaybackProgress(0); // Reset progress for new song
+                setIsPlaying(true);
+
+              } catch (error) {
+                console.error('Failed to autoplay a random song on status change:', error);
+              }
+            }
+          }
+          else {
             // No more songs in queue
             setCurrentSong(null);
-            setIsPlaying(false);
+            //setIsPlaying(false);
           }
 
         }
@@ -190,7 +247,7 @@ function App() {
 
   // Start/stop polling based on isPlaying state
   useEffect(() => {
-    if (!isPlaying) {
+    /*if (!isPlaying) {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
@@ -201,7 +258,7 @@ function App() {
       }
       setPlaybackProgress(0);
       return; // nothing else to do
-    }
+    }*/
 
     // Poll Spotify less frequently
     pollingIntervalRef.current = setInterval(fetchPlaybackState, 10000);
@@ -335,6 +392,47 @@ function App() {
       setCurrentSong(null);
       setPlaybackProgress(0);
       setIsPlaying(false);
+    }
+  };
+
+  const fetchRandomSongsFromDB = async (limit: number): Promise<Song[] | null> => {
+    try {
+      const response = await fetch(`${API_URL}/api/analytics/random/tracks?limit=${limit}`, { method: 'GET' });
+      if (response.ok) {
+        const data = await response.json() as {
+          trackid: string,
+          trackname: string,
+          artistname: string,
+          albumname: string,
+        }[];
+
+        //Currently just taking first track to play, will need to fetch details for all tracks, or do a looped fetch
+        const trackInfoResponse = await fetch(`${API_URL}/api/spotify/tracks/${data[0].trackid}`, { method: 'GET' });
+        if (trackInfoResponse.ok) {
+          const trackData = await trackInfoResponse.json();
+          const transformedResults: Song[] = [{
+            songId: trackData.id, // Generate unique ID for frontend
+            albumName: trackData.album || 'Unknown Album',
+            songName: trackData.name || 'Unknown Song',
+            artist: trackData.artist || 'Unknown Artist',
+            duration: trackData.duration,
+            albumArt: trackData.album_image || '',
+            releaseDate: trackData.release_date.split("-")[0] || '',
+            popularity: trackData.popularity || 0,
+            userId: "autoplay"
+          }];
+
+          return transformedResults;
+        }
+
+        return null;
+      } else {
+        console.error('Failed to fetch random song from DB:', response.statusText);
+        return null;
+      }
+    } catch (error) {
+      console.error('Error fetching random song from DB:', error);
+      return null;
     }
   };
 
