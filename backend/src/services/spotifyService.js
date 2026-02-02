@@ -343,17 +343,6 @@ class SpotifyService {
     }
   }
 
-  // Get current playback state
-  async getCurrentPlaybackQueue() {
-    try {
-      const response = await this.makeRequest('GET', '/me/player/queue');
-      return response.data;
-    } catch (error) {
-      logger.error('Failed to get current playback:', error.response?.data || error.message);
-      throw error;
-    }
-  }
-
   // Set volume
   async setVolume(volumePercent, deviceId = null) {
     try {

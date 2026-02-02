@@ -16,7 +16,9 @@ const analyticsRoutes = require('./routes/analytics');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-activeQueue = null;
+let activeQueue = null;
+let queueStatus = 'autoplay';
+let spotifyStatus = null;
 
 // Security middleware
 app.use(helmet());
@@ -65,7 +67,13 @@ app.use('/api/spotify', spotifyRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.get('/api/queue', async (req, res) => {
   try {
-    res.json(this.activeQueue);
+    res.json({
+      queue: activeQueue,
+      status: queueStatus,
+      spotify: spotifyStatus
+    }
+
+    );
   } catch (error) {
     logger.error('Failed to get active queue:', error);
     res.status(500).json({ error: 'Failed to get active queue', details: error.message });
@@ -101,12 +109,47 @@ async function startServer() {
       logger.info(`🚀 Spotify DJ Bot backend running on port ${PORT}`);
       logger.info(`📊 Environment: ${process.env.NODE_ENV}`);
 
+
       setInterval(async () => {
         if (spotifyService.isTokenValid()) {
           try {
-            const data = await spotifyService.getCurrentPlaybackQueue();
-            this.activeQueue = data;
-            console.log(this.activeQueue);
+            const trackQueue = await databaseService.getCurrentPlaybackQueue();
+            queueStatus = await databaseService.getPlaybackStatus();
+            const spotifyPlayback = await spotifyService.getCurrentPlayback();
+
+            spotifyStatus = {
+              isPlaying: spotifyPlayback.is_playing || false,
+              item: spotifyPlayback.item || null,
+              progressMs: spotifyPlayback.progress_ms || 0
+            };
+
+            if (queueStatus === 'autoplay' && trackQueue.length === 0 && !spotifyStatus.isPlaying) {
+              //add random track to queue
+              const randomTracks = await databaseService.getRandomTracks(1);
+              if (randomTracks.length > 0) {
+                const track = randomTracks[0];
+                //await databaseService.addToPlaybackQueue(track.trackId, track.trackName, track.artistName, track.albumName, 'autoplay');
+                await playTrack(track.trackid);
+                logger.info(`Added random track to queue: ${track.trackname} by ${track.artistname}`);
+              }
+            }
+            //if autoplay or playing, and not currently playing, play next track
+            if ((queueStatus === 'autoplay' || queueStatus === 'play') && trackQueue.length > 0 && !spotifyStatus.isPlaying) {
+              const nextTrack = trackQueue[0];
+              await playTrack(nextTrack.trackid);
+              logger.info(`Now playing: ${nextTrack.trackname} by ${nextTrack.artistname}`);
+              //remove from queue
+              await databaseService.removeFromPlaybackQueue(nextTrack.trackid);
+            }
+
+
+            activeQueue = trackQueue;
+
+            console.log({
+              queue: activeQueue,
+              status: queueStatus,
+              spotify: spotifyStatus
+            });
 
           } catch (error) {
             logger.error('Failed to get current playback:', error);
@@ -118,6 +161,15 @@ async function startServer() {
   } catch (error) {
     logger.error('Failed to start server:', error);
     process.exit(1);
+  }
+}
+
+async function playTrack(trackId) {
+  try {
+    const trackUri = `spotify:track:${trackId}`;
+    const result = await spotifyService.play([trackUri]);
+  } catch (error) {
+    logger.error('Failed to play track:', error);
   }
 }
 

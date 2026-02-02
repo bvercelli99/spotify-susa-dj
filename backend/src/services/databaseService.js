@@ -46,7 +46,7 @@ class DatabaseService {
 
       // Create playback_history table
       await client.query(`
-        CREATE TABLE IF NOT EXISTS playback_history (
+        CREATE TABLE IF NOT EXISTS track_history (
           id SERIAL PRIMARY KEY,
           track_id VARCHAR(50) NOT NULL,
           track_name VARCHAR(100),
@@ -61,8 +61,39 @@ class DatabaseService {
 
       // Create indexes for better performance
       await client.query(`
-        CREATE INDEX IF NOT EXISTS idx_playback_history_user_id ON playback_history(user_id);
-        CREATE INDEX IF NOT EXISTS idx_playback_history_track_id ON playback_history(track_id);
+        CREATE INDEX IF NOT EXISTS idx_playback_history_user_id ON track_history(user_id);
+        CREATE INDEX IF NOT EXISTS idx_playback_history_track_id ON track_history(track_id);
+      `);
+
+      // Create playback_queue && playback_status table, set default status of stop, clear queue
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS public.playback_queue
+        (
+            track_id character varying(50) COLLATE pg_catalog."default" NOT NULL,
+            track_name character varying(100) COLLATE pg_catalog."default",
+            artist_name character varying(100) COLLATE pg_catalog."default",
+            album_name character varying(100) COLLATE pg_catalog."default",
+            user_id text COLLATE pg_catalog."default" NOT NULL,
+            added_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+            play_order integer NOT NULL DEFAULT 1
+        )
+
+        TABLESPACE pg_default;
+
+        CREATE TABLE IF NOT EXISTS public.playback_status
+        (
+            status text NOT NULL DEFAULT 'stop',
+            user_id text COLLATE pg_catalog."default",
+            date_updated timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+        )
+
+        TABLESPACE pg_default;
+      `);
+
+      await client.query(`
+        TRUNCATE public.playback_queue;
+        TRUNCATE public.playback_status;
+        INSERT INTO public.playback_status (status, user_id, date_updated) VALUES ('autoplay', 'system', now());
       `);
 
       client.release();
@@ -86,7 +117,7 @@ class DatabaseService {
       } = playbackData;
 
       const checkQuery = `
-        SELECT id FROM playback_history 
+        SELECT id FROM track_history
         WHERE track_id = $1
       `;
 
@@ -95,7 +126,7 @@ class DatabaseService {
       if (existingCheck.rows.length > 0) {
         // If entry exists, update the times_played count
         const updateQuery = `
-          UPDATE playback_history
+          UPDATE track_history
           SET times_played = times_played + 1
           WHERE id = $1
         `;
@@ -105,7 +136,7 @@ class DatabaseService {
       }
       else {
         const query = `
-          INSERT INTO playback_history 
+          INSERT INTO track_history
           (track_id, track_name, artist_name, album_name, user_id) 
           VALUES ($1, $2, $3, $4, $5)
           RETURNING id
@@ -142,7 +173,7 @@ class DatabaseService {
           ph.artist_name,
           ph.album_name,
           COUNT(*) as play_count
-        FROM playback_history ph
+        FROM track_history ph
         WHERE ph.played_at >= CURRENT_TIMESTAMP - INTERVAL '${days} days'
         GROUP BY ph.track_id, ph.track_name, ph.artist_name, ph.album_name
         ORDER BY play_count DESC
@@ -165,7 +196,7 @@ class DatabaseService {
           ph.artist_name,
           COUNT(*) as play_count,
           COUNT(DISTINCT ph.track_id) as unique_tracks
-        FROM playback_history ph
+        FROM track_history ph
         WHERE ph.played_at >= CURRENT_TIMESTAMP - INTERVAL '${days} days'
         GROUP BY ph.artist_name
         ORDER BY play_count DESC
@@ -209,7 +240,7 @@ class DatabaseService {
           ph.track_name as trackName,
           ph.artist_name as artistName,
           ph.album_name as albumName
-        FROM playback_history ph
+        FROM track_history ph
         WHERE banned = false
         ORDER BY RANDOM()
         LIMIT $1
@@ -228,7 +259,7 @@ class DatabaseService {
     try {
       const query = `
         SELECT user_id
-        FROM playback_history
+        FROM track_history
         WHERE track_id = $1
         LIMIT 1
       `;
@@ -243,6 +274,97 @@ class DatabaseService {
       throw error;
     }
   }
+
+  // Get current playback queue
+  async getCurrentPlaybackQueue() {
+    try {
+      const query = `
+        SELECT track_id as trackId, track_name as trackName, artist_name as artistName, 
+          album_name as albumName, user_id as userId, added_at as dateAdded, play_order as order
+        FROM public.playback_queue
+        ORDER BY play_order ASC
+      `;
+      const result = await this.pool.query(query);
+
+      return result.rows;
+    }
+    catch (error) {
+      logger.error('Failed to getCurrentPlaybackQueue', error);
+      throw error;
+    }
+  }
+
+  async addToPlaybackQueue(trackId, trackName, artistName, albumName, userId) {
+    try {
+      const orderQuery = `
+        SELECT COALESCE(MAX(play_order), 0) + 1 AS next_order
+        FROM public.playback_queue
+      `;
+      const orderResult = await this.pool.query(orderQuery);
+      const nextOrder = orderResult.rows[0].next_order;
+      const insertQuery = `
+        INSERT INTO public.playback_queue 
+        (track_id, track_name, artist_name, album_name, user_id, play_order)
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `;
+      const values = [trackId, trackName, artistName, albumName, userId, nextOrder];
+      await this.pool.query(insertQuery, values);
+      logger.info(`Track added to playback queue: ${trackName} by ${artistName}`);
+    }
+    catch (error) {
+      logger.error('Failed to addToPlaybackQueue', error);
+      throw error;
+    }
+  }
+
+  async removeFromPlaybackQueue(trackId) {
+    try {
+      const deleteQuery = `
+        DELETE FROM public.playback_queue
+        WHERE track_id = $1
+      `;
+      await this.pool.query(deleteQuery, [trackId]);
+      logger.info(`Track removed from playback queue: ${trackId}`);
+    }
+    catch (error) {
+      logger.error('Failed to removeFromPlaybackQueue', error);
+      throw error;
+    }
+  }
+
+  async getPlaybackStatus() {
+    try {
+      const query = ` 
+        SELECT status
+        FROM public.playback_status
+        LIMIT 1
+      `;
+      const result = await this.pool.query(query);
+      return result.rows[0].status;
+    }
+    catch (error) {
+      logger.error('Failed to getPlaybackStatus', error);
+      throw error;
+    }
+  }
+
+  async updatePlaybackStatus(status, userId) {
+    try {
+      const updateQuery = `
+        UPDATE public.playback_status
+        SET status = $1, user_id = $2, date_updated = now()
+      `;
+      await this.pool.query(updateQuery, [status, userId]);
+      logger.info(`Playback status updated to: ${status}`);
+    }
+    catch (error) {
+      logger.error('Failed to updatePlaybackStatus', error);
+      throw error;
+    }
+  }
+
+  //update playback status (play, autoplay, stop/clear all)
+
 }
 
 module.exports = new DatabaseService();
