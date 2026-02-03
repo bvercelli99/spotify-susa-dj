@@ -42,7 +42,7 @@ function App() {
         // Transform the Spotify API response to match our Song model
         if (data && data.length > 0) {
           const transformedResults: Song[] = data.map((track: any) => ({
-            songId: track.id, // Generate unique ID for frontend
+            songId: track.id,
             albumName: track.album || 'Unknown Album',
             songName: track.name || 'Unknown Song',
             artist: track.artist || 'Unknown Artist',
@@ -71,57 +71,40 @@ function App() {
 
   const handleAutoplay = async () => {
     if (!isAutoPlaying) {
+      //call server to update state
       setIsAutoPlaying(true);
-    }
-
-    if (upcomingSongs.length > 0) {
-      if (!isPlaying) {
-        try {
-          await callPlayAPI(upcomingSongs[0]);
-          setCurrentSong(upcomingSongs[0]); // Set first song as current
-          setPlaybackProgress(0); // Reset progress for new song
-          setIsPlaying(true);
-          handleRemoveSong(upcomingSongs[0].songId);
-        } catch (error) {
-          console.error('Failed to start autoplay:', error);
-          // Still update UI even if API call fails for better UX
-          setCurrentSong(upcomingSongs[0]);
-          setPlaybackProgress(0);
-          setIsPlaying(true);
-        }
-      }
-    } else if (!isPlaying) {
-      //TODO get random song from db and set active
-      console.log('No songs in queue for autoplay, pull 10 from db and go');
-      const randomSongs = await fetchRandomSongsFromDB(1);
-      if (randomSongs && randomSongs.length > 0) {
-        try {
-          const song = randomSongs[0];
-          setCurrentSong(song); // Set first song as current
-          setPlaybackProgress(0); // Reset progress for new song
-          setIsPlaying(true);
-          await callPlayAPI(song);
-
-        } catch (error) {
-          console.error('Failed to start autoplay with random song:', error);
-        }
-      }
+      await updateStatus('autoplay', 'local-user');
     }
   };
 
   const handleStop = async () => {
     try {
+
+      //set playing and autoplaying to false
+      //call puase and clear current song
+      await updateStatus('stop', 'local-user');
       await callPauseAPI();
+      //clear queue locally and on server
+      await fetch(`${API_URL}/api/queue`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
       setIsPlaying(false);
-      setIsAutoPlaying(false);
       setCurrentSong(null);
-      console.log('Playback stopped');
+
+      setUpcomingSongs([]);
+
+      setIsAutoPlaying(false);
     } catch (error) {
       console.error('Failed to stop playback:', error);
       // Still update UI even if API call fails for better UX
       setIsPlaying(false);
       setIsAutoPlaying(false);
       setCurrentSong(null);
+      setUpcomingSongs([]);
     }
   };
 
@@ -146,24 +129,13 @@ function App() {
           setPlaybackProgress(0);
         }
       } else if (isAutoPlaying) {
-        const randomSongs = await fetchRandomSongsFromDB(1);
-        if (randomSongs && randomSongs.length > 0) {
-          try {
-            const song = randomSongs[0];
-            setCurrentSong(song); // Set first song as current
-            setPlaybackProgress(0); // Reset progress for new song
-            setIsPlaying(true);
-            await callPlayAPI(song);
-          } catch (error) {
-            console.error('Failed to autoplay a random song on skip:', error);
-          }
-        }
+
+
       }
     }
   };
 
   const handleBlame = async () => {
-    console.log('Blame action triggered');
     if (currentSong) {
       try {
 
@@ -192,6 +164,10 @@ function App() {
 
         if (data) {
 
+          if (data.status === 'autoplay') {
+            setIsAutoPlaying(true);
+          }
+
           if (data.queue && Array.isArray(data.queue)) {
             const songs = data.queue.map((track: any) => ({
               songId: track.trackid, // Generate unique ID for frontend
@@ -207,13 +183,27 @@ function App() {
           }
 
           // Update progress if song is playing
-          if (data.spotify && data.spotify?.is_playing && data.spotify?.progress_ms !== null) {
-            setPlaybackProgress(data.spotify.progress_ms);
+          if (data.spotify && data.spotify?.isPlaying && data.spotify?.progressMs !== null) {
+            setCurrentSong({
+              songId: data.spotify.item.id,
+              albumName: data.spotify.item.album.name || 'Unknown Album',
+              songName: data.spotify.item.name || 'Unknown Song',
+              artist: data.spotify.item.artists[0].name || 'Unknown Artist',
+              duration: data.spotify.item.duration_ms,
+              albumArt: data.spotify.item.album.images[0].url || '',
+              userId: '',
+              releaseDate: data.spotify.item.album.release_date || '',
+              popularity: data.spotify.item.popularity || 0,
+            });
+            setIsPlaying(true);
+            setPlaybackProgress(data.spotify.progressMs);
+
             //set current song info
           }
-          else if (data.status === 'stop' || (data.status === 'play' && data.queue.length === 0 && !data.spotify?.is_playing)) {
+          else if (data.status === 'stop' || (data.status === 'play' && data.queue.length === 0 && !data.spotify?.isPlaying)) {
             // No more songs in queue
             setCurrentSong(null);
+            data.status === 'stop' ? setIsPlaying(false) : setIsPlaying(true);
           }
 
 
@@ -241,16 +231,45 @@ function App() {
     };
   }, [fetchPlaybackState]);
 
-  const handleAddSong = (song: Song) => {
-    // Check if song is already in the list
-    const isDuplicate = upcomingSongs.some(existingSong => existingSong.songId === song.songId);
-    if (!isDuplicate) {
-      // Add the song to the upcoming songs list
-      song.userId = "local-user"; // Placeholder user ID
-      setUpcomingSongs(prevSongs => [...prevSongs, song]);
-      console.log('Added song:', song.songName);
-    } else {
-      console.log('Song already in list');
+  const handleAddSong = async (song: Song) => {
+    try {
+      song.userId = "local-user";
+
+      if (isAutoPlaying) {
+        //just add to queue
+        const isDuplicate = upcomingSongs.some(existingSong => existingSong.songId === song.songId);
+        if (!isDuplicate) {
+          await addToQueue(song);
+          setUpcomingSongs(prevSongs => [...prevSongs, song]);
+        }
+
+      }
+      else if (isPlaying) {
+        //check to add to queue first, then just play
+        if (currentSong && currentSong.songId !== song.songId) {
+          const isDuplicate = upcomingSongs.some(existingSong => existingSong.songId === song.songId);
+          if (!isDuplicate) {
+            await addToQueue(song);
+            setUpcomingSongs(prevSongs => [...prevSongs, song]);
+          }
+        }
+        else {
+          updateStatus('play', 'local-user');
+          callPlayAPI(song);
+          setCurrentSong(song);
+          setIsPlaying(true);
+        }
+      }
+      else { //stopped state
+        //play song immediately
+        updateStatus('play', 'local-user');
+        callPlayAPI(song);
+        setCurrentSong(song);
+        setIsPlaying(true);
+      }
+    }
+    catch (error) {
+      console.error('Error setting userId on song:', error);
     }
   };
 
@@ -348,44 +367,45 @@ function App() {
     }
   };
 
-  const fetchRandomSongsFromDB = async (limit: number): Promise<Song[] | null> => {
+  const updateStatus = async (status: string, userId: string) => {
     try {
-      const response = await fetch(`${API_URL}/api/analytics/random/tracks?limit=${limit}`, { method: 'GET' });
-      if (response.ok) {
-        const data = await response.json() as {
-          trackid: string,
-          trackname: string,
-          artistname: string,
-          albumname: string,
-        }[];
-
-        //Currently just taking first track to play, will need to fetch details for all tracks, or do a looped fetch
-        const trackInfoResponse = await fetch(`${API_URL}/api/spotify/tracks/${data[0].trackid}`, { method: 'GET' });
-        if (trackInfoResponse.ok) {
-          const trackData = await trackInfoResponse.json();
-          const transformedResults: Song[] = [{
-            songId: trackData.id, // Generate unique ID for frontend
-            albumName: trackData.album || 'Unknown Album',
-            songName: trackData.name || 'Unknown Song',
-            artist: trackData.artist || 'Unknown Artist',
-            duration: trackData.duration,
-            albumArt: trackData.album_image || '',
-            releaseDate: trackData.release_date.split("-")[0] || '',
-            popularity: trackData.popularity || 0,
-            userId: "autoplay"
-          }];
-
-          return transformedResults;
-        }
-
-        return null;
-      } else {
-        console.error('Failed to fetch random song from DB:', response.statusText);
-        return null;
+      const response = await fetch(`${API_URL}/api/status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status, userId }),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+      const data = await response.json();
+      console.log('Status updated via API:', data);
+      return data;
     } catch (error) {
-      console.error('Error fetching random song from DB:', error);
-      return null;
+      console.error('Failed to update status:', error);
+      throw error;
+    }
+  };
+
+  const addToQueue = async (song: Song) => {
+    try {
+      const response = await fetch(`${API_URL}/api/queue`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(song),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+
+      return data;
+    } catch (error) {
+      console.error('Failed to update status:', error);
+      throw error;
     }
   };
 
@@ -483,7 +503,7 @@ function App() {
                         <div className="space-y-1">
                           <h3 className="text-xl font-semibold text-white truncate">{currentSong.songName}</h3>
                           <p className="text-gray-300">{currentSong.artist}</p>
-                          <p className="text-gray-400 text-sm">{currentSong.albumName}</p>
+                          <p className="text-gray-400 text-sm">{currentSong.albumName} {currentSong.releaseDate}</p>
                         </div>
                       </div>
                     </div>
@@ -556,8 +576,10 @@ function App() {
               {/* Control Buttons */}
               <div className="flex flex-wrap gap-2 lg:gap-4">
                 <button
+                  disabled={isAutoPlaying}
                   onClick={handleAutoplay}
-                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors duration-200 flex items-center space-x-2"
+                  className={`bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors duration-200 flex items-center space-x-2
+                            ${isAutoPlaying ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

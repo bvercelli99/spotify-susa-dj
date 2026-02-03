@@ -17,7 +17,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 let activeQueue = null;
-let queueStatus = 'autoplay';
+let queueStatus = 'stop';
 let spotifyStatus = null;
 
 // Security middleware
@@ -65,6 +65,8 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/spotify', spotifyRoutes);
 app.use('/api/analytics', analyticsRoutes);
+
+//QUEUE ROUTES//
 app.get('/api/queue', async (req, res) => {
   try {
     res.json({
@@ -79,6 +81,54 @@ app.get('/api/queue', async (req, res) => {
     res.status(500).json({ error: 'Failed to get active queue', details: error.message });
   }
 });
+app.post('/api/queue', async (req, res) => {
+  try {
+    console.log(req.body);
+    const songToAdd = req.body;
+    await databaseService.addToPlaybackQueue(
+      songToAdd.songId,
+      songToAdd.songName,
+      songToAdd.artist,
+      songToAdd.albumName,
+      songToAdd.userId || ''
+    );
+    const trackQueue = await databaseService.getCurrentPlaybackQueue();
+
+    res.json(trackQueue);
+  } catch (error) {
+    logger.error('Failed to add to song queue:', error);
+    res.status(500).json({ error: 'Failed to add to song queue', details: error.message });
+  }
+});
+app.delete('/api/queue', async (req, res) => {
+  try {
+
+    await databaseService.clearPlaybackQueue();
+
+    res.json([]);
+  } catch (error) {
+    logger.error('Failed to clear active queue:', error);
+    res.status(500).json({ error: 'Failed to clear active queue', details: error.message });
+  }
+});
+/////////////////
+//STATUS ROUTES//
+app.post('/api/status', async (req, res) => {
+  try {
+    const { status, userId } = req.body;
+    if (!['play', 'autoplay', 'stop'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status value' });
+    }
+
+    await databaseService.updatePlaybackStatus(status, userId || 'system');
+    queueStatus = status;
+    res.json({ status: queueStatus });
+  } catch (error) {
+    logger.error('Failed to update playback status:', error);
+    res.status(500).json({ error: 'Failed to update playback status', details: error.message });
+  }
+});
+/////////////////
 
 
 // Error handling middleware
@@ -144,12 +194,6 @@ async function startServer() {
 
 
             activeQueue = trackQueue;
-
-            console.log({
-              queue: activeQueue,
-              status: queueStatus,
-              spotify: spotifyStatus
-            });
 
           } catch (error) {
             logger.error('Failed to get current playback:', error);

@@ -93,7 +93,7 @@ class DatabaseService {
       await client.query(`
         TRUNCATE public.playback_queue;
         TRUNCATE public.playback_status;
-        INSERT INTO public.playback_status (status, user_id, date_updated) VALUES ('autoplay', 'system', now());
+        INSERT INTO public.playback_status (status, user_id, date_updated) VALUES ('stop', 'system', now());
       `);
 
       client.release();
@@ -328,6 +328,20 @@ class DatabaseService {
     }
     catch (error) {
       logger.error('Failed to removeFromPlaybackQueue', error);
+      throw error;
+    }
+  }
+
+  async clearPlaybackQueue() {
+    try {
+      const deleteQuery = `
+        TRUNCATE public.playback_queue
+      `;
+      await this.pool.query(deleteQuery);
+      logger.info(`Cleared playback queue`);
+    }
+    catch (error) {
+      logger.error('Failed to clear playback queue', error);
       throw error;
     }
   }
