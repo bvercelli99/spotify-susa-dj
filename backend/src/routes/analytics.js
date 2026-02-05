@@ -75,6 +75,21 @@ router.get('/blame/:trackId', async (req, res) => {
   }
 });
 
+// Get who added the track
+router.get('/ban/:trackId', async (req, res) => {
+  try {
+    const { trackId } = req.params;
+
+    await databaseService.removeTrackFromHistory(trackId);
+
+    res.json({ trackId });
+
+  } catch (error) {
+    logger.error('Failed to ban track:', error);
+    res.status(500).json({ error: 'Failed to ban track', details: error.message });
+  }
+});
+
 // Get usage analytics with filters
 router.get('/usage', async (req, res) => {
   try {

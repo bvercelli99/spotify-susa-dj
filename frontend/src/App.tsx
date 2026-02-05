@@ -21,7 +21,6 @@ function App() {
 
   const handleSearch = async (e: any) => {
     e.preventDefault();
-    console.log('Searching for:', searchQuery);
 
     if (searchQuery.trim()) {
       try {
@@ -117,11 +116,10 @@ function App() {
         const nextSong = upcomingSongs[0];
 
         try {
+          await handleRemoveSongFromQueue(nextSong.songId);
           await callPlayAPI(nextSong);
           setCurrentSong(nextSong);
           setPlaybackProgress(0); // Reset progress for new song
-          handleRemoveSong(nextSong.songId);
-          console.log('Skipped to next song:', nextSong.songName);
         } catch (error) {
           console.error('Failed to skip song:', error);
           // Still update UI even if API call fails for better UX
@@ -129,8 +127,15 @@ function App() {
           setPlaybackProgress(0);
         }
       } else if (isAutoPlaying) {
-
-
+        try {
+          //just call pause if no songs in queue and server will handle next new random song
+          await callPauseAPI();
+        } catch (error) {
+          console.error('Failed to pause for autoplay:', error);
+        }
+      } else {
+        // No more songs in queue and not autoplaying, just treat it like stop
+        await handleStop();
       }
     }
   };
@@ -149,6 +154,17 @@ function App() {
       }
     }
 
+  };
+
+  const handleTrash = async () => {
+    if (currentSong) {
+      // eslint-disable-next-line no-restricted-globals
+      let b = confirm(`Are you sure you'd like to ban "${currentSong.songName}"`);
+      if (b) {
+        await fetch(`${API_URL}/api/analytics/ban/${currentSong.songId}`);
+        handleSkip();
+      }
+    }
   };
 
   // Polling interval reference
@@ -174,8 +190,8 @@ function App() {
               albumName: track.albumname || 'Unknown Album',
               songName: track.trackname || 'Unknown Song',
               artist: track.artistname || 'Unknown Artist',
-              duration: track.duration_ms,
-              albumArt: track.album_art || '',
+              duration: track.durationms || 0,
+              albumArt: track.albumart || '',
               userId: track.userid || '',
             }));
 
@@ -214,10 +230,10 @@ function App() {
     }
   }, [API_URL]);
 
-  // Poll server every 10 seconds regardless of play state
+  // Poll server every 5 seconds regardless of play state
   useEffect(() => {
     // Set up polling interval
-    pollingIntervalRef.current = setInterval(fetchPlaybackState, 10000);
+    pollingIntervalRef.current = setInterval(fetchPlaybackState, 5000);
 
     // Kick off immediately
     fetchPlaybackState();
@@ -273,7 +289,13 @@ function App() {
     }
   };
 
-  const handleRemoveSong = (songId: string) => {
+  const handleRemoveSongFromQueue = async (songId: string) => {
+    await fetch(`${API_URL}/api/queue/${songId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
     setUpcomingSongs(prevSongs => prevSongs.filter(song => song.songId !== songId));
     console.log('Removed song from list');
   };
@@ -337,7 +359,6 @@ function App() {
       }
 
       const data = await response.json();
-      console.log('Playback paused via API:', data);
       return data;
     } catch (error) {
       console.error('Failed to pause playback:', error);
@@ -357,7 +378,6 @@ function App() {
       setCurrentSong(song);
       setPlaybackProgress(0); // Reset progress for new song
       setIsPlaying(true);
-      console.log('Playing song now:', song.songName);
     } catch (error) {
       console.error('Failed to play song:', error);
       // Still update UI even if API call fails for better UX
@@ -445,14 +465,14 @@ function App() {
                     </div>
                     <p className="text-gray-300 text-sm mb-3">{song.artist}</p>
                     <div className="flex space-x-2">
-                      <button
+                      {/* <button
                         onClick={() => handlePlayNow(song)}
                         className="text-xs bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded transition-colors duration-200"
                       >
                         Play Now
-                      </button>
+                      </button> */}
                       <button
-                        onClick={() => handleRemoveSong(song.songId)}
+                        onClick={() => handleRemoveSongFromQueue(song.songId)}
                         className="text-xs bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded transition-colors duration-200"
                       >
                         Remove
@@ -501,7 +521,19 @@ function App() {
                       {/* Song Info */}
                       <div className="flex-1 min-w-0">
                         <div className="space-y-1">
-                          <h3 className="text-xl font-semibold text-white truncate">{currentSong.songName}</h3>
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-xl font-semibold text-white truncate">{currentSong.songName}</h3>
+                            <button
+                              type="button"
+                              onClick={handleTrash}
+                              className="ml-2 p-1 rounded hover:bg-gray-700 focus:outline-none"
+                              aria-label="Trash"
+                            >
+                              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M10 3h4a1 1 0 011 1v2H9V4a1 1 0 011-1z" />
+                              </svg>
+                            </button>
+                          </div>
                           <p className="text-gray-300">{currentSong.artist}</p>
                           <p className="text-gray-400 text-sm">{currentSong.albumName} {currentSong.releaseDate}</p>
                         </div>
@@ -622,7 +654,7 @@ function App() {
           </div>
 
           {/* Main Content Area - Search Results */}
-          <div className="flex-1 p-3 lg:p-6">
+          <div className="flex-1 p-3 lg:p-6 overflow-y-auto">
             {searchResults.length > 0 ? (
               <div>
                 <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 mb-4 lg:mb-6">

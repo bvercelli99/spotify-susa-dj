@@ -73,6 +73,8 @@ class DatabaseService {
             track_name character varying(100) COLLATE pg_catalog."default",
             artist_name character varying(100) COLLATE pg_catalog."default",
             album_name character varying(100) COLLATE pg_catalog."default",
+            album_art text COLLATE pg_catalog."default",
+            duration integer,
             user_id text COLLATE pg_catalog."default" NOT NULL,
             added_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
             play_order integer NOT NULL DEFAULT 1
@@ -275,12 +277,28 @@ class DatabaseService {
     }
   }
 
+  async removeTrackFromHistory(trackId) {
+    try {
+      const deleteQuery = `
+        DELETE FROM track_history
+        WHERE track_id = $1
+      `;
+      await this.pool.query(deleteQuery, [trackId]);
+      logger.info(`Track removed from history: ${trackId}`);
+    }
+    catch (error) {
+      logger.error('Failed to remove track from history:', error);
+      throw error;
+    }
+  }
+
   // Get current playback queue
   async getCurrentPlaybackQueue() {
     try {
       const query = `
         SELECT track_id as trackId, track_name as trackName, artist_name as artistName, 
-          album_name as albumName, user_id as userId, added_at as dateAdded, play_order as order
+          album_name as albumName, album_art as albumArt, duration,
+          user_id as userId, added_at as dateAdded, play_order as order
         FROM public.playback_queue
         ORDER BY play_order ASC
       `;
@@ -294,7 +312,7 @@ class DatabaseService {
     }
   }
 
-  async addToPlaybackQueue(trackId, trackName, artistName, albumName, userId) {
+  async addToPlaybackQueue(trackId, trackName, artistName, albumName, albumArt, duration, userId) {
     try {
       const orderQuery = `
         SELECT COALESCE(MAX(play_order), 0) + 1 AS next_order
@@ -304,10 +322,10 @@ class DatabaseService {
       const nextOrder = orderResult.rows[0].next_order;
       const insertQuery = `
         INSERT INTO public.playback_queue 
-        (track_id, track_name, artist_name, album_name, user_id, play_order)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        (track_id, track_name, artist_name, album_name, album_art, duration, user_id, play_order)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `;
-      const values = [trackId, trackName, artistName, albumName, userId, nextOrder];
+      const values = [trackId, trackName, artistName, albumName, albumArt, duration, userId, nextOrder];
       await this.pool.query(insertQuery, values);
       logger.info(`Track added to playback queue: ${trackName} by ${artistName}`);
     }

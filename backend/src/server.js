@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+//const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const logger = require('./utils/logger');
@@ -35,12 +35,12 @@ app.use(cors({
 }));
 
 // Rate limiting
-const limiter = rateLimit({
+/*const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
   message: 'Too many requests from this IP, please try again later.'
 });
-app.use(limiter);
+app.use(limiter);*/
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -90,16 +90,19 @@ app.post('/api/queue', async (req, res) => {
       songToAdd.songName,
       songToAdd.artist,
       songToAdd.albumName,
+      songToAdd.albumArt,
+      songToAdd.duration,
       songToAdd.userId || ''
     );
     const trackQueue = await databaseService.getCurrentPlaybackQueue();
-
+    queue = trackQueue;
     res.json(trackQueue);
   } catch (error) {
     logger.error('Failed to add to song queue:', error);
     res.status(500).json({ error: 'Failed to add to song queue', details: error.message });
   }
 });
+//clear queue
 app.delete('/api/queue', async (req, res) => {
   try {
 
@@ -111,6 +114,20 @@ app.delete('/api/queue', async (req, res) => {
     res.status(500).json({ error: 'Failed to clear active queue', details: error.message });
   }
 });
+//remove specific track from queue
+app.delete('/api/queue/:trackId', async (req, res) => {
+  try {
+    const { trackId } = req.params;
+    await databaseService.removeFromPlaybackQueue(trackId);
+    const trackQueue = await databaseService.getCurrentPlaybackQueue();
+    activeQueue = trackQueue;
+    res.json(trackQueue);
+  } catch (error) {
+    logger.error('Failed to remove track from queue:', error);
+    res.status(500).json({ error: 'Failed to remove track from queue', details: error.message });
+  }
+});
+
 /////////////////
 //STATUS ROUTES//
 app.post('/api/status', async (req, res) => {
@@ -190,10 +207,11 @@ async function startServer() {
               logger.info(`Now playing: ${nextTrack.trackname} by ${nextTrack.artistname}`);
               //remove from queue
               await databaseService.removeFromPlaybackQueue(nextTrack.trackid);
+              activeQueue = await databaseService.getCurrentPlaybackQueue();
             }
-
-
-            activeQueue = trackQueue;
+            else {
+              activeQueue = trackQueue;
+            }
 
           } catch (error) {
             logger.error('Failed to get current playback:', error);
