@@ -1,16 +1,16 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
-interface AuthContextType {
+interface SpotifyAuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
-  user: any | null;
+  spotifyUser: any | null;
   activeDevice: any | null;
   login: () => void;
   logout: () => void;
   checkAuthStatus: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<SpotifyAuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -27,7 +27,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState<any | null>(null);
+  const [spotifyUser, setSpotifyUser] = useState<any | null>(null);
   const [activeDevice, setActiveDevice] = useState<any | null>(null);
 
   const API_BASE_URL = 'http://localhost:3001/api';
@@ -45,7 +45,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const profileResponse = await fetch(`${API_BASE_URL}/auth/spotify/profile`);
             if (profileResponse.ok) {
               const profileData = await profileResponse.json();
-              setUser(profileData);
+              setSpotifyUser(profileData);
             }
           } catch (profileError) {
             console.error('Failed to get user profile:', profileError);
@@ -72,12 +72,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       } else {
         setIsAuthenticated(false);
-        setUser(null);
+        setSpotifyUser(null);
       }
     } catch (error) {
       console.error('Failed to check auth status:', error);
       setIsAuthenticated(false);
-      setUser(null);
+      setSpotifyUser(null);
     } finally {
       setIsLoading(false);
     }
@@ -125,7 +125,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         },
       });
       setIsAuthenticated(false);
-      setUser(null);
+      setSpotifyUser(null);
       setActiveDevice(null);
     } catch (error) {
       console.error('Failed to logout:', error);
@@ -136,10 +136,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkAuthStatus();
   }, []);
 
-  const value: AuthContextType = {
+  const value: SpotifyAuthContextType = {
     isAuthenticated,
     isLoading,
-    user,
+    spotifyUser: spotifyUser,
     activeDevice,
     login,
     logout,

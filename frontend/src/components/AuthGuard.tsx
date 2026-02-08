@@ -1,6 +1,6 @@
 import React from 'react';
 import logoImage from '../assets/westly-strong.svg';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/SpotifyAuthContext';
 
 interface AuthGuardProps {
   children: React.ReactNode;

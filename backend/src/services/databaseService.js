@@ -280,7 +280,8 @@ class DatabaseService {
   async removeTrackFromHistory(trackId) {
     try {
       const deleteQuery = `
-        DELETE FROM track_history
+        UPDATE track_history
+        SET banned = true
         WHERE track_id = $1
       `;
       await this.pool.query(deleteQuery, [trackId]);

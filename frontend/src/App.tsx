@@ -3,7 +3,7 @@ import './App.css';
 import logoImage from './assets/westly-strong.svg';
 import { AuthGuard } from './components/AuthGuard';
 import { UserHeader } from './components/UserHeader';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/SpotifyAuthContext';
 import { Song } from './models/Song';
 import * as utils from './utils/utilities';
 
@@ -297,7 +297,6 @@ function App() {
       },
     });
     setUpcomingSongs(prevSongs => prevSongs.filter(song => song.songId !== songId));
-    console.log('Removed song from list');
   };
 
   const callPlayAPI = async (song: Song) => {
@@ -336,7 +335,6 @@ function App() {
       }
 
       const data = await response.json();
-      console.log('Playback started via API:', data);
       return data;
     } catch (error) {
       console.error('Failed to start playback:', error);
@@ -400,7 +398,6 @@ function App() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
-      console.log('Status updated via API:', data);
       return data;
     } catch (error) {
       console.error('Failed to update status:', error);
