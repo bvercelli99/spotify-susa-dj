@@ -250,7 +250,8 @@ class DatabaseService {
           ph.track_id as trackId,
           ph.track_name as trackName,
           ph.artist_name as artistName,
-          ph.album_name as albumName
+          ph.album_name as albumName,
+          ph.user_id as userId
         FROM track_history ph
         WHERE banned = false
         ORDER BY RANDOM()

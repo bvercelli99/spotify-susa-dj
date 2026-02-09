@@ -197,6 +197,13 @@ async function startServer() {
                 const track = randomTracks[0];
                 //await databaseService.addToPlaybackQueue(track.trackId, track.trackName, track.artistName, track.albumName, 'autoplay');
                 await playTrack(track.trackid);
+                await databaseService.logPlaybackEvent({
+                  trackId: track.trackid,
+                  trackName: track.trackname,
+                  artistName: track.artistname,
+                  albumName: track.albumname,
+                  userId: track.userid
+                });
                 logger.info(`Added random track to queue: ${track.trackname} by ${track.artistname}`);
               }
             }
@@ -204,6 +211,13 @@ async function startServer() {
             if ((queueStatus === 'autoplay' || queueStatus === 'play') && trackQueue.length > 0 && !spotifyStatus.isPlaying) {
               const nextTrack = trackQueue[0];
               await playTrack(nextTrack.trackid);
+              await databaseService.logPlaybackEvent({
+                trackId: nextTrack.trackid,
+                trackName: nextTrack.trackname,
+                artistName: nextTrack.artistname,
+                albumName: nextTrack.albumname,
+                userId: nextTrack.userid
+              });
               logger.info(`Now playing: ${nextTrack.trackname} by ${nextTrack.artistname}`);
               //remove from queue
               await databaseService.removeFromPlaybackQueue(nextTrack.trackid);
