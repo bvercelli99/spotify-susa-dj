@@ -3,6 +3,7 @@ import './App.css';
 import logoImage from './assets/westly-strong.svg';
 import { AuthGuard } from './components/AuthGuard';
 import { UserHeader } from './components/UserHeader';
+import { DjUserAuthProvider, useDjUserAuth } from './contexts/DjUserAuthContext';
 import { AuthProvider } from './contexts/SpotifyAuthContext';
 import { Song } from './models/Song';
 import * as utils from './utils/utilities';
@@ -16,6 +17,7 @@ function App() {
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [upcomingSongs, setUpcomingSongs] = useState<Song[]>([]);
   const [playbackProgress, setPlaybackProgress] = useState<number>(0);
+  const { djUser } = useDjUserAuth();
 
   const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001';
 
@@ -72,7 +74,7 @@ function App() {
     if (!isAutoPlaying) {
       //call server to update state
       setIsAutoPlaying(true);
-      await updateStatus('autoplay', 'local-user');
+      await updateStatus('autoplay', djUser?.username || 'local-user');
     }
   };
 
@@ -81,7 +83,7 @@ function App() {
 
       //set playing and autoplaying to false
       //call puase and clear current song
-      await updateStatus('stop', 'local-user');
+      await updateStatus('stop', djUser?.username || 'local-user');
       await callPauseAPI();
       //clear queue locally and on server
       await fetch(`${API_URL}/api/queue`, {
@@ -249,7 +251,7 @@ function App() {
 
   const handleAddSong = async (song: Song) => {
     try {
-      song.userId = "local-user";
+      song.userId = djUser?.username || 'local-user';
 
       if (isAutoPlaying) {
         //just add to queue
@@ -270,7 +272,7 @@ function App() {
           }
         }
         else {
-          updateStatus('play', 'local-user');
+          updateStatus('play', djUser?.username || 'local-user');
           callPlayAPI(song);
           setCurrentSong(song);
           setIsPlaying(true);
@@ -278,7 +280,7 @@ function App() {
       }
       else { //stopped state
         //play song immediately
-        updateStatus('play', 'local-user');
+        updateStatus('play', djUser?.username || 'local-user');
         callPlayAPI(song);
         setCurrentSong(song);
         setIsPlaying(true);
@@ -329,7 +331,7 @@ function App() {
               artistName: song.artist,
               albumName: song.albumName,
             },
-            userId: "local-user"
+            userId: djUser?.username || 'local-user'
           }),
         });
       }
@@ -364,7 +366,7 @@ function App() {
     }
   };
 
-  const handlePlayNow = async (song: Song) => {
+  /*const handlePlayNow = async (song: Song) => {
     try {
       await callPlayAPI(song);
       const currentIndex = upcomingSongs.findIndex(s => s.songId === song.songId);
@@ -383,7 +385,7 @@ function App() {
       setPlaybackProgress(0);
       setIsPlaying(false);
     }
-  };
+  };*/
 
   const updateStatus = async (status: string, userId: string) => {
     try {
@@ -663,7 +665,7 @@ function App() {
                     Clear Results
                   </button>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                   {searchResults.map((song) => (
                     <div key={song.songId} className="bg-gray-600 rounded-lg p-3 hover:bg-gray-600 transition-colors duration-200">
                       <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
@@ -727,7 +729,9 @@ const AppWithAuth: React.FC = () => {
   return (
     <AuthProvider>
       <AuthGuard>
-        <App />
+        <DjUserAuthProvider>
+          <App />
+        </DjUserAuthProvider>
       </AuthGuard>
     </AuthProvider>
   );

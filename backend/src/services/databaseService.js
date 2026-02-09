@@ -90,6 +90,15 @@ class DatabaseService {
         )
 
         TABLESPACE pg_default;
+
+        CREATE TABLE IF NOT EXISTS public.dj_users
+        (
+            user_id text NOT NULL,
+            user_name text NOT NULL COLLATE pg_catalog."default",
+            user_code text NOT NULL
+        )
+
+        TABLESPACE pg_default;
       `);
 
       await client.query(`
@@ -396,7 +405,25 @@ class DatabaseService {
     }
   }
 
-  //update playback status (play, autoplay, stop/clear all)
+  async getDjUserByCode(code) {
+    try {
+      const query = `
+        SELECT user_name, user_id
+        FROM dj_users
+        WHERE user_code = $1
+        LIMIT 1
+      `;
+      const result = await this.pool.query(query, [code]);
+      if (result.rows.length === 0) {
+        throw new Error('Invalid verification code');
+      }
+      return { id: result.rows[0].user_id, username: result.rows[0].user_name };
+    }
+    catch (error) {
+      logger.error('Failed to get DJ user by code:', error);
+      throw error;
+    }
+  }
 
 }
 

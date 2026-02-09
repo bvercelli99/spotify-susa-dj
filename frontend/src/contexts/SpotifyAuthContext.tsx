@@ -30,11 +30,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [spotifyUser, setSpotifyUser] = useState<any | null>(null);
   const [activeDevice, setActiveDevice] = useState<any | null>(null);
 
-  const API_BASE_URL = 'http://localhost:3001/api';
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001';
 
   const checkAuthStatus = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/spotify/status`);
+      const response = await fetch(`${API_BASE_URL}/api/auth/spotify/status`);
       if (response.ok) {
         const data = await response.json();
         setIsAuthenticated(data.authenticated);
@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // If authenticated, get user profile and set device
         if (data.authenticated) {
           try {
-            const profileResponse = await fetch(`${API_BASE_URL}/auth/spotify/profile`);
+            const profileResponse = await fetch(`${API_BASE_URL}/api/auth/spotify/profile`);
             if (profileResponse.ok) {
               const profileData = await profileResponse.json();
               setSpotifyUser(profileData);
@@ -53,7 +53,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
           // Set first available device as active
           try {
-            const deviceResponse = await fetch(`${API_BASE_URL}/auth/spotify/set-device`, {
+            const deviceResponse = await fetch(`${API_BASE_URL}/api/auth/spotify/set-device`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -86,7 +86,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async () => {
     try {
       // Get the Spotify authorization URL
-      const response = await fetch(`${API_BASE_URL}/auth/spotify/url`);
+      const response = await fetch(`${API_BASE_URL}/api/auth/spotify/url`);
       if (response.ok) {
         const data = await response.json();
 

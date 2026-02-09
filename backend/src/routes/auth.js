@@ -268,4 +268,25 @@ router.post('/spotify/logout', async (req, res) => {
   }
 });
 
+// Login / Verify DJ User
+router.post('/dj/verify', async (req, res) => {
+  try {
+    const code = req.body.code;
+
+    if (!code) {
+      return res.status(400).json({ error: 'Verification code is required' });
+    }
+
+
+    const result = await databaseService.getDjUserByCode(code.toLowerCase());
+
+    res.json({ username: result.username, id: result.id });
+  } catch (error) {
+    logger.error('DJ Verify User failed:', error);
+    res.status(500).json({ error: 'Invalid verification code. Please try again.', details: error.message });
+  }
+});
+
+
+
 module.exports = router;

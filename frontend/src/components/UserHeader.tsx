@@ -1,22 +1,17 @@
 import React from 'react';
+import { useDjUserAuth } from '../contexts/DjUserAuthContext';
 import { useAuth } from '../contexts/SpotifyAuthContext';
 
 export const UserHeader: React.FC = () => {
-  const { spotifyUser, activeDevice, logout } = useAuth();
+  const { activeDevice } = useAuth();
+  const { djUser, logout } = useDjUserAuth();
 
   return (
     <div className="flex items-center justify-between bg-gray-700 rounded-lg p-3 mb-4">
       <div className="flex items-center space-x-3">
-        {spotifyUser?.image && (
-          <img
-            src={spotifyUser.image}
-            alt={spotifyUser.displayName || 'User'}
-            className="w-10 h-10 rounded-full object-cover"
-          />
-        )}
+
         <div>
-          <p className="text-white font-medium">{spotifyUser?.displayName || 'User'}</p>
-          <p className="text-gray-400 text-sm">{spotifyUser?.email}</p>
+          <p className="text-white font-medium">{djUser?.username || 'User'}</p>
           {activeDevice && (
             <p className="text-gray-500 text-xs mt-1">
               📱 {activeDevice.name} ({activeDevice.type})
