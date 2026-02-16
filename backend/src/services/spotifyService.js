@@ -172,16 +172,18 @@ class SpotifyService {
         if (response.data.tracks) {
           let returnValue = [];
           response.data.tracks.items.forEach(item => {
-            returnValue.push({
-              id: item.id,
-              name: item.name,
-              artist: item.artists[0].name,
-              album: item.album.name,
-              duration: item.duration_ms,
-              release_date: item.album.release_date,
-              album_image: item.album.images[0].url,
-              popularity: item.popularity,
-            });
+            if ((process.env.SPOTIFY_ALLOW_EXPLICIT === 'false' && !item.explicit) || process.env.SPOTIFY_ALLOW_EXPLICIT === 'true') {
+              returnValue.push({
+                id: item.id,
+                name: item.name,
+                artist: item.artists[0].name,
+                album: item.album.name,
+                duration: item.duration_ms,
+                release_date: item.album.release_date,
+                album_image: item.album.images[0].url,
+                popularity: item.popularity,
+              });
+            }
           });
           logger.info(`Search completed for query: "${query}"`);
           return returnValue;
