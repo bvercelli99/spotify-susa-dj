@@ -173,7 +173,7 @@ class SpotifyService {
         if (response.data.tracks) {
           let returnValue = [];
           response.data.tracks.items.forEach(item => {
-            if ((!allowExplicit && !item.explicit) || allowExplicit) {
+            if ((!this.allowExplicit && !item.explicit) || this.allowExplicit) {
               returnValue.push({
                 id: item.id,
                 name: item.name,
