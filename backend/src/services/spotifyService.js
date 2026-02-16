@@ -8,6 +8,7 @@ class SpotifyService {
     this.clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
     this.redirectUri = process.env.SPOTIFY_REDIRECT_URI;
     this.refreshToken = process.env.SPOTIFY_REFRESH_TOKEN;
+    this.allowExplicit = (process.env.SPOTIFY_ALLOW_EXPLICIT || 'false').toLowerCase() === 'true';
 
     this.accessToken = null;
     this.tokenExpiry = null;
@@ -172,7 +173,7 @@ class SpotifyService {
         if (response.data.tracks) {
           let returnValue = [];
           response.data.tracks.items.forEach(item => {
-            if ((process.env.SPOTIFY_ALLOW_EXPLICIT === 'false' && !item.explicit) || process.env.SPOTIFY_ALLOW_EXPLICIT === 'true') {
+            if ((!allowExplicit && !item.explicit) || allowExplicit) {
               returnValue.push({
                 id: item.id,
                 name: item.name,
