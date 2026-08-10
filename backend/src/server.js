@@ -209,7 +209,7 @@ async function startServer() {
 async function playTrack(trackId) {
   try {
     const trackUri = `spotify:track:${trackId}`;
-    const result = await spotifyService.play([trackUri]);
+    await spotifyService.play([trackUri]);
   } catch (error) {
     logger.error('Failed to play track:', error);
   }

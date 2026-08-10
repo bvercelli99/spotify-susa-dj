@@ -135,7 +135,6 @@ class DatabaseService {
         albumName,
         userId
       } = playbackData;
-
       const checkQuery = `
         SELECT id FROM track_history
         WHERE track_id = $1
